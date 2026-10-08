@@ -1,0 +1,20 @@
+{
+  "name": "fampay-verify",
+  "version": "2.0.0",
+  "description": "Automated UPI payment verification for FamApp via Gmail",
+  "main": "api/verify.js",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/realximanta/fampay-verify.git"
+  },
+  "author": "realximanta",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.7.2",
+    "googleapis": "^134.0.0",
+    "uuid": "^10.0.0"
+  }
+}
