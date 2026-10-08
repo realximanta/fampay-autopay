@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fampay-verify · Payment Verification API</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(ellipse at 50% 0%, #1a2639 0%, #0b1120 60%, #070b14 100%);
+      min-height: 100vh;
+      color: #e2e8f0;
+      line-height: 1.6;
+      padding: 1.5rem;
+    }
+    .container { max-width: 880px; margin: 0 auto; }
+    .hero { text-align: center; padding: 3rem 1rem 2rem; }
+    .hero-brand {
+      display: inline-flex; align-items: center; gap: 0.6rem;
+      font-size: 0.85rem; letter-spacing: 0.15em; text-transform: uppercase;
+      color: #60a5fa; font-weight: 600; margin-bottom: 1.5rem;
+      padding: 0.4rem 1rem; border: 1px solid rgba(96,165,250,0.3);
+      border-radius: 999px; background: rgba(96,165,250,0.05);
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #22c55e; box-shadow: 0 0 12px #22c55e;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 800;
+      letter-spacing: -0.03em; line-height: 1.1;
+      background: linear-gradient(135deg, #ffffff 0%, #93bbfc 50%, #a78bfa 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; margin-bottom: 1rem;
+    }
+    .hero p { color: #94a3b8; font-size: 1.1rem; max-width: 560px; margin: 0 auto 2rem; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 0.6rem; background: #3b82f6; color: #fff; font-weight: 600;
+      padding: 1rem 2.5rem; border-radius: 999px; text-decoration: none;
+      font-size: 1.05rem; transition: all 0.2s;
+      box-shadow: 0 8px 32px -8px rgba(59,130,246,0.6); border: none; cursor: pointer;
+    }
+    .btn:hover { background: #2563eb; transform: translateY(-2px); }
+    .btn svg { width: 20px; height: 20px; }
+    .btn-sm { padding: 0.5rem 1rem; font-size: 0.85rem; border-radius: 0.6rem; }
+    .btn-danger {
+      background: transparent; border: 1px solid rgba(248,113,113,0.4);
+      color: #f87171; box-shadow: none;
+    }
+    .btn-danger:hover { background: rgba(248,113,113,0.1); }
+    .btn-group { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .card {
+      background: rgba(255,255,255,0.03); backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.06); border-radius: 1.75rem;
+      padding: 2rem; margin-bottom: 1.5rem;
+    }
+    .key-label {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase;
+      color: #94a3b8; font-weight: 600; margin-bottom: 1rem;
+    }
+    .key-label .dot { background: #facc15; box-shadow: 0 0 12px #facc15; }
+    .key-display {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 0.75rem; background: #0a0f1c; border: 1px solid #1e293b;
+      border-radius: 1rem; padding: 1rem 1.25rem; flex-wrap: wrap;
+    }
+    .key-value {
+      font-family: 'JetBrains Mono', monospace; font-size: 1.1rem;
+      font-weight: 600; color: #facc15; word-break: break-all;
+      flex: 1; min-width: 200px;
+    }
+    .steps {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem; margin: 2rem 0;
+    }
+    .step {
+      background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 1.25rem; padding: 1.5rem;
+    }
+    .step-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 50%;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      color: #fff; font-weight: 700; font-size: 0.9rem; margin-bottom: 0.75rem;
+    }
+    .step h4 { font-size: 1rem; font-weight: 600; margin-bottom: 0.4rem; color: #f0f4ff; }
+    .step p { font-size: 0.9rem; color: #94a3b8; }
+    .docs h3 {
+      font-size: 1.15rem; font-weight: 700; color: #f0f4ff;
+      margin-bottom: 1rem; display: flex; align-items: center; gap: 0.6rem;
+    }
+    .docs h4 {
+      font-size: 0.95rem; color: #cbd5e1; font-weight: 600;
+      margin-top: 1.25rem; margin-bottom: 0.5rem;
+    }
+    .docs code {
+      background: #1e293b; padding: 0.15rem 0.5rem;
+      border-radius: 0.35rem; font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem; color: #e2e8f0;
+    }
+    .docs pre {
+      background: #050810; padding: 1rem 1.25rem; border-radius: 0.85rem;
+      overflow-x: auto; margin: 0.6rem 0; border: 1px solid #1e293b;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
+      color: #e2e8f0; white-space: pre; line-height: 1.6;
+    }
+    .docs pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+    .footer { text-align: center; padding: 2rem 0; color: #475569; font-size: 0.85rem; }
+    .footer a { color: #60a5fa; text-decoration: none; font-weight: 500; }
+    .alert {
+      padding: 0.85rem 1.1rem; border-radius: 0.85rem;
+      font-size: 0.9rem; margin-bottom: 1rem;
+    }
+    .alert-success {
+      background: rgba(34,197,94,0.08);
+      border: 1px solid rgba(34,197,94,0.25); color: #86efac;
+    }
+    .alert-info {
+      background: rgba(96,165,250,0.08);
+      border: 1px solid rgba(96,165,250,0.25); color: #93bbfc;
+    }
+    .hidden { display: none !important; }
+    @media (max-width: 600px) {
+      .hero { padding: 2rem 0.5rem 1rem; }
+      .card { padding: 1.5rem; border-radius: 1.25rem; }
+      .btn { padding: 0.9rem 1.75rem; width: 100%; }
+      .key-display { flex-direction: column; align-items: stretch; }
+      .btn-group { width: 100%; }
+      .btn-group .btn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <section class="hero">
+      <div class="hero-brand">
+        <span class="dot"></span>
+        fampay-verify · Live
+      </div>
+      <h1>Payment Verification API<br/>for your bots</h1>
+      <p>Sign in with Google, get your API key, and verify UPI payments automatically through FamApp notifications in your Gmail.</p>
+    </section>
+
+    <div id="signInView">
+      <div style="text-align:center; padding: 1rem 0 2rem;">
+        <a href="/api/auth" class="btn">
+          <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          Sign In with Google
+        </a>
+        <p style="color:#64748b; margin-top:1.25rem; font-size:0.88rem; max-width:420px; margin-left:auto; margin-right:auto;">
+          We only request <strong style="color:#94a3b8;">read-only</strong> access to your Gmail — we never send, modify, or delete emails.
+        </p>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h4>Sign In</h4>
+          <p>Authenticate with the Gmail account where you receive FamApp payment notifications.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h4>Get Your Key</h4>
+          <p>Your unique API key is generated instantly. Same Gmail always returns the same key.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h4>Integrate</h4>
+          <p>Call our verify endpoint from your Telegram bot or backend to confirm payments.</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="signedInView" class="hidden">
+      <div id="statusAlert" class="alert alert-info hidden"></div>
+
+      <div class="card">
+        <div class="key-label"><span class="dot"></span> Your API Key</div>
+        <div class="key-display">
+          <span class="key-value" id="apiKeyDisplay"></span>
+          <div class="btn-group">
+            <button class="btn btn-sm" id="copyBtn">Copy</button>
+            <a href="/api/auth?action=revoke" class="btn btn-sm btn-danger">Revoke & Get New Key</a>
+          </div>
+        </div>
+        <p style="color:#64748b; font-size:0.82rem; margin-top:1rem;">
+          Keep this key private. If it leaks, click Revoke — the old key becomes invalid and you get a new one instantly.
+        </p>
+      </div>
+
+      <div class="card docs">
+        <h3>API Reference</h3>
+
+        <h4>Endpoint</h4>
+        <pre><code>GET /api/verify?key=YOUR_KEY&amp;amount=10.05</code></pre>
+
+        <h4>Response</h4>
+        <pre><code>{
+  "verified": true,
+  "received": 10.05,
+  "status": "exact"
+}</code></pre>
+
+        <h4>Python Example</h4>
+        <pre><code>import requests
+
+r = requests.get(
+    "https://your-domain.com/api/verify",
+    params={"key": "YOUR_KEY", "amount": 10.05}
+)
+print(r.json())</code></pre>
+      </div>
+    </div>
+
+    <div class="footer">
+      Need help? <a href="https://kimi9bot.t.me" target="_blank">kimi9bot.t.me</a>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const params = new URLSearchParams(window.location.search);
+      const apiKey = params.get('api_key');
+      const isExisting = params.get('existing') === '1';
+      const isNew = params.get('new') === '1';
+      const isRevoked = params.get('revoked') === '1';
+
+      const signInView = document.getElementById('signInView');
+      const signedInView = document.getElementById('signedInView');
+      const apiKeyDisplay = document.getElementById('apiKeyDisplay');
+      const copyBtn = document.getElementById('copyBtn');
+      const statusAlert = document.getElementById('statusAlert');
+
+      if (apiKey) {
+        signInView.classList.add('hidden');
+        signedInView.classList.remove('hidden');
+        apiKeyDisplay.textContent = apiKey;
+
+        if (isRevoked) {
+          statusAlert.className = 'alert alert-success';
+          statusAlert.textContent = 'Old key revoked. Here is your new API key.';
+          statusAlert.classList.remove('hidden');
+        } else if (isExisting) {
+          statusAlert.className = 'alert alert-info';
+          statusAlert.textContent = 'Welcome back! This is your existing API key.';
+          statusAlert.classList.remove('hidden');
+        } else if (isNew) {
+          statusAlert.className = 'alert alert-success';
+          statusAlert.textContent = 'Account created! Save your API key safely.';
+          statusAlert.classList.remove('hidden');
+        }
+
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
+      copyBtn?.addEventListener('click', async function() {
+        const key = apiKeyDisplay.textContent;
+        if (!key) return;
+        try {
+          await navigator.clipboard.writeText(key);
+          const original = copyBtn.textContent;
+          copyBtn.textContent = 'Copied';
+          setTimeout(() => { copyBtn.textContent = original; }, 2000);
+        } catch {
+          alert('Press Ctrl+C to copy');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
