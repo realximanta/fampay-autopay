@@ -20,7 +20,7 @@
 
 ## 🎬 Live Demo & Client Integration Guide
 
-**→ [auto-payment-fixed-author-developer-ximanta.md](./auto-payment-fixed-author-developer-ximanta.md)**
+**→ [LIVE DEMO GUIDE](./auto-payment-fixed-author-developer-ximanta.md)**
 
 The file above is the complete client-facing guide. It covers:
 
