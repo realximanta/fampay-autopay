@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Console · fampay-verify</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(ellipse at 50% 0%, #1a2639 0%, #0b1120 60%);
+      min-height: 100vh; color: #e2e8f0; padding: 2rem 1.5rem;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    h1 {
+      font-size: 1.75rem; font-weight: 700; margin-bottom: 1.5rem;
+      background: linear-gradient(135deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .card {
+      background: rgba(255,255,255,0.03); backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.06); border-radius: 1.5rem;
+      padding: 2rem; margin-bottom: 1.5rem;
+    }
+    label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 0.4rem; font-weight: 500; }
+    input {
+      width: 100%; padding: 0.75rem 1rem; background: #0a0f1c;
+      border: 1px solid #1e293b; border-radius: 0.75rem;
+      color: #e2e8f0; font-size: 1rem; font-family: inherit;
+    }
+    input:focus { outline: none; border-color: #3b82f6; }
+    button {
+      padding: 0.75rem 1.5rem; border-radius: 0.75rem; border: none;
+      background: #3b82f6; color: #fff; font-weight: 600;
+      cursor: pointer; font-size: 0.95rem; font-family: inherit;
+      margin-top: 1rem;
+    }
+    button:hover { background: #2563eb; }
+    button.sm { padding: 0.4rem 0.75rem; font-size: 0.8rem; margin: 0; }
+    button.danger { background: transparent; border: 1px solid rgba(248,113,113,0.4); color: #f87171; }
+    button.warn { background: transparent; border: 1px solid rgba(250,204,21,0.4); color: #facc15; }
+    button.good { background: transparent; border: 1px solid rgba(34,197,94,0.4); color: #4ade80; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #1e293b; font-size: 0.9rem; }
+    th { background: rgba(255,255,255,0.03); color: #94a3b8; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
+    .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #facc15; }
+    .email { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: #93bbfc; }
+    .badge { padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; }
+    .badge.active { background: rgba(34,197,94,0.15); color: #86efac; }
+    .badge.revoked { background: rgba(148,163,184,0.15); color: #cbd5e1; }
+    .badge.blacklisted { background: rgba(248,113,113,0.15); color: #fca5a5; }
+    .err { color: #fca5a5; font-size: 0.85rem; margin-top: 0.75rem; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .stat { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 1rem; padding: 1rem 1.25rem; }
+    .stat-num { font-size: 1.75rem; font-weight: 700; color: #f0f4ff; }
+    .stat-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; margin-top: 0.25rem; }
+    .hidden { display: none !important; }
+    .row-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Console · fampay-verify</h1>
+
+    <div id="loginView" class="card">
+      <label for="pw">Admin Password</label>
+      <input type="password" id="pw" placeholder="Enter password" />
+      <button id="loginBtn">Sign In</button>
+      <div id="loginError" class="err hidden"></div>
+    </div>
+
+    <div id="panelView" class="hidden">
+      <div class="stats" id="stats"></div>
+
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h2 style="font-size:1.1rem;">Signed-In Users</h2>
+          <button class="sm" id="refreshBtn">Refresh</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Gmail</th>
+                <th>API Key</th>
+                <th>Created</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersBody"></tbody>
+          </table>
+        </div>
+        <div id="panelError" class="err hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let token = localStorage.getItem('adminToken') || '';
+    let users = [];
+
+    const loginView = document.getElementById('loginView');
+    const panelView = document.getElementById('panelView');
+
+    async function api(path, method = 'GET') {
+      const res = await fetch(path, {
+        method,
+        headers: { 'X-Admin-Token': token },
+      });
+      if (!res.ok) throw new Error((await res.json()).error || `HTTP ${res.status}`);
+      return res.json();
+    }
+
+    async function login() {
+      const pw = document.getElementById('pw').value;
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pw }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Login failed');
+        token = data.token;
+        localStorage.setItem('adminToken', token);
+        await showPanel();
+      } catch (e) {
+        const el = document.getElementById('loginError');
+        el.textContent = e.message;
+        el.classList.remove('hidden');
+      }
+    }
+
+    async function showPanel() {
+      loginView.classList.add('hidden');
+      panelView.classList.remove('hidden');
+      await loadUsers();
+    }
+
+    async function loadUsers() {
+      try {
+        const data = await api('/api/admin/user');
+        users = data.users || [];
+        renderStats();
+        renderUsers();
+      } catch (e) {
+        const el = document.getElementById('panelError');
+        el.textContent = e.message;
+        el.classList.remove('hidden');
+        if (e.message.includes('Unauthorized')) {
+          localStorage.removeItem('adminToken');
+          token = '';
+          loginView.classList.remove('hidden');
+          panelView.classList.add('hidden');
+        }
+      }
+    }
+
+    function renderStats() {
+      const total = users.length;
+      const active = users.filter(u => !u.revoked && !u.blacklisted).length;
+      const revoked = users.filter(u => u.revoked).length;
+      const blacklisted = users.filter(u => u.blacklisted).length;
+      document.getElementById('stats').innerHTML = `
+        <div class="stat"><div class="stat-num">${total}</div><div class="stat-label">Total</div></div>
+        <div class="stat"><div class="stat-num">${active}</div><div class="stat-label">Active</div></div>
+        <div class="stat"><div class="stat-num">${revoked}</div><div class="stat-label">Revoked</div></div>
+        <div class="stat"><div class="stat-num">${blacklisted}</div><div class="stat-label">Blacklisted</div></div>
+      `;
+    }
+
+    function renderUsers() {
+      const tbody = document.getElementById('usersBody');
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b; padding:2rem;">No users yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = users.map(u => {
+        let badge = '<span class="badge active">Active</span>';
+        if (u.blacklisted) badge = '<span class="badge blacklisted">Blacklisted</span>';
+        else if (u.revoked) badge = '<span class="badge revoked">Revoked</span>';
+        const created = u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—';
+
+        return `
+          <tr>
+            <td class="email">${u.emailAddress || '—'}</td>
+            <td class="mono">${u.apiKey}</td>
+            <td>${created}</td>
+            <td>${badge}</td>
+            <td>
+              <div class="row-actions">
+                ${!u.revoked ? `<button class="sm danger" onclick="revokeUser('${u.apiKey}')">Revoke</button>` : ''}
+                ${!u.blacklisted
+                  ? `<button class="sm warn" onclick="blacklistUser('${u.emailAddress}')">Blacklist</button>`
+                  : `<button class="sm good" onclick="unblacklistUser('${u.emailAddress}')">Unblacklist</button>`
+                }
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    window.revokeUser = async function(key) {
+      if (!confirm(`Revoke key ${key}?`)) return;
+      try {
+        await api(`/api/admin/revoke?key=${encodeURIComponent(key)}`);
+        await loadUsers();
+      } catch (e) { alert('Error: ' + e.message); }
+    };
+
+    window.blacklistUser = async function(email) {
+      if (!confirm(`Blacklist ${email}?`)) return;
+      try {
+        await api(`/api/admin/blacklist?email=${encodeURIComponent(email)}`);
+        await loadUsers();
+      } catch (e) { alert('Error: ' + e.message); }
+    };
+
+    window.unblacklistUser = async function(email) {
+      if (!confirm(`Remove blacklist for ${email}?`)) return;
+      try {
+        await api(`/api/admin/blacklist?email=${encodeURIComponent(email)}&action=unblacklist`);
+        await loadUsers();
+      } catch (e) { alert('Error: ' + e.message); }
+    };
+
+    document.getElementById('loginBtn').addEventListener('click', login);
+    document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+    document.getElementById('refreshBtn').addEventListener('click', loadUsers);
+
+    if (token) showPanel();
+  </script>
+</body>
+</html>
