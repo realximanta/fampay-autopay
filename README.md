@@ -11,7 +11,27 @@
 [![OAuth 2.0](https://img.shields.io/badge/OAuth%202.0-Google-4285F4?logo=google&logoColor=white)](https://developers.google.com/identity/protocols/oauth2)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Read%20Integration%20Guide-3b82f6?style=for-the-badge&logo=readthedocs&logoColor=white)](./auto-payment-fixed-author-developer-ximanta.md)
+[![Client Docs](https://img.shields.io/badge/Client%20Docs-Integration%20Rules-brightgreen?style=for-the-badge&logo=markdown&logoColor=white)](./auto-payment-fixed-author-developer-ximanta.md)
+
 </div>
+
+---
+
+## 🎬 Live Demo & Client Integration Guide
+
+**→ [auto-payment-fixed-author-developer-ximanta.md](./auto-payment-fixed-author-developer-ximanta.md)**
+
+The file above is the complete client-facing guide. It covers:
+
+- Getting an API key via Google OAuth
+- Generating a payment QR with the fingerprint amount
+- Verifying payments against the API
+- Complete Python and JavaScript integration examples
+- **24 mandatory rules** every client must implement
+- Response shape reference for every status code
+
+If you're building on top of this API, **start there** before writing any code.
 
 ---
 
@@ -97,6 +117,8 @@ curl "https://your-verify-api.vercel.app/api/verify?key=YOUR_KEY&amount=10.05"
 }
 ```
 
+> Full walkthrough and 24 mandatory rules for clients: **[auto-payment-fixed-author-developer-ximanta.md](./auto-payment-fixed-author-developer-ximanta.md)**
+
 ---
 
 ## Deployment
@@ -159,6 +181,8 @@ SUPPORT_LINK
 
 ```
 fampay-verify/
+├── README.md                                   ← you are here
+├── auto-payment-fixed-author-developer-ximanta.md   ← 📘 LIVE DEMO / CLIENT GUIDE
 ├── verify-api/          ← Node.js verification service
 │   ├── api/             ← serverless endpoints
 │   ├── lib/             ← config, KV client, Gmail logic
@@ -173,6 +197,15 @@ fampay-verify/
 
 ---
 
+## Documentation
+
+| Document | Purpose |
+|---|---|
+| **[auto-payment-fixed-author-developer-ximanta.md](./auto-payment-fixed-author-developer-ximanta.md)** | 📘 Complete client integration guide + 24 rules |
+| [README.md](./README.md) | This file — project overview + deployment |
+
+---
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
@@ -182,3 +215,18 @@ MIT — see [LICENSE](LICENSE).
 ## Author
 
 **realximanta** — [kimi9bot.t.me](https://kimi9bot.t.me)
+```
+
+---
+
+## 🎯 What Changed in the README
+
+| Addition | Location | Purpose |
+|---|---|---|
+| **Live Demo button** | Top badges row | Links to your `.md` file with `style=for-the-badge` — visible immediately |
+| **Client Docs button** | Top badges row | Second prominent button also pointing to the guide |
+| **🎬 Live Demo & Client Integration Guide** section | Right after badges | Dedicated section describing the file with a link + short summary of what's inside |
+| **Quick start pointer** | End of Quick Start | Reminder link to the full guide |
+| **Updated project structure** | Project structure tree | Shows the `.md` file at repo root so readers know where it lives |
+| **Documentation table** | New section | Clean table listing all docs in the repo |
+
