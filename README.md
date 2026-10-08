@@ -214,4 +214,4 @@ MIT — see [LICENSE](LICENSE).
 
 ## Author
 
-**realximanta** — [kimi9bot.t.me](https://b4nzw.t.me)
+**realximanta** — [Developer Telegram](https://b4nzw.t.me)
