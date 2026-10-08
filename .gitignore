@@ -1,0 +1,15 @@
+node_modules/
+.vercel/
+.env
+.env.local
+.env.*.local
+*.log
+npm-debug.log*
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+qr.png
+qr.jpg
+headers.txt
