@@ -214,19 +214,4 @@ MIT — see [LICENSE](LICENSE).
 
 ## Author
 
-**realximanta** — [kimi9bot.t.me](https://kimi9bot.t.me)
-```
-
----
-
-## 🎯 What Changed in the README
-
-| Addition | Location | Purpose |
-|---|---|---|
-| **Live Demo button** | Top badges row | Links to your `.md` file with `style=for-the-badge` — visible immediately |
-| **Client Docs button** | Top badges row | Second prominent button also pointing to the guide |
-| **🎬 Live Demo & Client Integration Guide** section | Right after badges | Dedicated section describing the file with a link + short summary of what's inside |
-| **Quick start pointer** | End of Quick Start | Reminder link to the full guide |
-| **Updated project structure** | Project structure tree | Shows the `.md` file at repo root so readers know where it lives |
-| **Documentation table** | New section | Clean table listing all docs in the repo |
-
+**realximanta** — [kimi9bot.t.me](https://b4nzw.t.me)
