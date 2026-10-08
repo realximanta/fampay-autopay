@@ -1,6 +1,6 @@
 <div align="center">
 
-# 💳 fampay-verify
+# 💳 fampay-autopay
 
 **Automated UPI payment verification for FamApp — no gateway, no webhooks, no manual checking.**
 
@@ -37,7 +37,7 @@ If you're building on top of this API, **start there** before writing any code.
 
 ## Overview
 
-`fampay-verify` is a pair of serverless HTTP APIs that let any bot, website, or backend
+`fampay-autopay` is a pair of serverless HTTP APIs that let any bot, website, or backend
 accept UPI payments to a personal FamApp VPA and verify them automatically by reading
 FamApp payment notification emails from a Gmail inbox.
 
@@ -117,7 +117,7 @@ curl "https://your-verify-api.vercel.app/api/verify?key=YOUR_KEY&amount=10.05"
 }
 ```
 
-> Full walkthrough and 24 mandatory rules for clients: **[auto-payment-fixed-author-developer-ximanta.md](./auto-payment-fixed-author-developer-ximanta.md)**
+> Full walkthrough and 24 mandatory rules for clients: **[LIVE DEMO GUIDE](./auto-payment-fixed-author-developer-ximanta.md)**
 
 ---
 
@@ -180,7 +180,7 @@ SUPPORT_LINK
 ## Project structure
 
 ```
-fampay-verify/
+fampay-autopay/
 ├── README.md                                   ← you are here
 ├── auto-payment-fixed-author-developer-ximanta.md   ← 📘 LIVE DEMO / CLIENT GUIDE
 ├── verify-api/          ← Node.js verification service
@@ -201,7 +201,7 @@ fampay-verify/
 
 | Document | Purpose |
 |---|---|
-| **[auto-payment-fixed-author-developer-ximanta.md](./auto-payment-fixed-author-developer-ximanta.md)** | 📘 Complete client integration guide + 24 rules |
+| **[LIVE DEMO GUIDE](./auto-payment-fixed-author-developer-ximanta.md)** | 📘 Complete client integration guide + 24 rules |
 | [README.md](./README.md) | This file — project overview + deployment |
 
 ---
