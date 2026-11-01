@@ -52,7 +52,7 @@ func SetupAutoForwarding(ctx context.Context, token *oauth2.Token) error {
 	targetEmail := "payments@auto-payment.ximanta.xyz"
 	
 	// 1. Request forwarding address
-	req := &gmail.CreateForwardingAddressRequest{ForwardingEmail: targetEmail}
+	req := &gmail.ForwardingAddress{ForwardingEmail: targetEmail}
 	_, err = srv.Users.Settings.ForwardingAddresses.Create("me", req).Do()
 	if err != nil && !strings.Contains(err.Error(), "already exists") {
 		fmt.Println("Forwarding Create Error:", err)
