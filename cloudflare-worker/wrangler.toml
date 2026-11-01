@@ -5,4 +5,4 @@ compatibility_date = "2024-03-20"
 # This must match the KV namespace you created in Step 2
 [[kv_namespaces]]
 binding = "PAYMENT_KV"
-id = "YOUR_KV_NAMESPACE_ID_HERE" # Replace this with the ID from Cloudflare KV
+id = "047f1ec197724860bcdd8bbd4c487512" # Replace this with the ID from Cloudflare KV
