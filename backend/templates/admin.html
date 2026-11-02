@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Admin | Auto-Pay</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+	<style>
+		:root { --bg: #000; --surface: #0a0a0a; --border: #222; --text: #ededed; --text-muted: #888; --accent: #fff; --danger: #ff4444; }
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); padding: 40px 20px; }
+		.container { max-width: 1000px; margin: 0 auto; }
+		.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+		h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.5px; }
+		button { background: var(--accent); color: #000; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: opacity 0.2s; }
+		button:hover { opacity: 0.8; }
+		button.outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+		button.outline:hover { background: var(--border); }
+		table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+		th, td { padding: 16px; text-align: left; border-bottom: 1px solid var(--border); font-size: 14px; }
+		th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 500; background: #050505; }
+		td { font-family: 'JetBrains Mono', monospace; }
+		td.email { font-family: 'Inter', sans-serif; }
+		.actions { display: flex; gap: 8px; }
+		.btn-sm { padding: 4px 8px; font-size: 11px; }
+		.hidden { display: none !important; }
+		#loginView { max-width: 400px; margin: 100px auto; background: var(--surface); padding: 40px; border-radius: 12px; border: 1px solid var(--border); text-align: center; }
+		input { width: 100%; padding: 12px; background: #000; border: 1px solid var(--border); color: #fff; border-radius: 6px; margin-bottom: 16px; font-family: 'Inter', sans-serif; }
+		input:focus { outline: none; border-color: #555; }
+	</style>
+</head>
+<body>
+	<div id="loginView">
+		<h1 style="margin-bottom: 24px;">Admin Login</h1>
+		<input type="password" id="adminPass" placeholder="Enter Password" />
+		<button onclick="login()" style="width: 100%;">Login</button>
+		<p id="loginError" style="color: var(--danger); font-size: 13px; margin-top: 16px; display: none;">Invalid password</p>
+	</div>
+
+	<div id="panelView" class="container hidden">
+		<div class="header">
+			<h1>User Management</h1>
+			<div class="actions">
+				<button class="outline" onclick="loadUsers()">Refresh</button>
+				<a href="/api/admin/logout"><button class="outline">Logout</button></a>
+			</div>
+		</div>
+		<table>
+			<thead>
+				<tr>
+					<th>Email</th>
+					<th>API Key</th>
+					<th>Days Left</th>
+					<th>Actions</th>
+				</tr>
+			</thead>
+			<tbody id="userTable"></tbody>
+		</table>
+	</div>
+
+	<script>
+		async function login() {
+			const pass = document.getElementById('adminPass').value;
+			const res = await fetch('/api/admin/login', { method: 'POST', body: JSON.stringify({password: pass}) });
+			if (res.ok) {
+				document.getElementById('loginView').classList.add('hidden');
+				document.getElementById('panelView').classList.remove('hidden');
+				loadUsers();
+			} else {
+				document.getElementById('loginError').style.display = 'block';
+			}
+		}
+
+		async function loadUsers() {
+			const res = await fetch('/api/admin/users', { cache: 'no-store' });
+			if (!res.ok) return window.location.reload();
+			const users = await res.json();
+			
+			const tbody = document.getElementById('userTable');
+			tbody.innerHTML = '';
+			
+			users.forEach(u => {
+				const tr = document.createElement('tr');
+				tr.innerHTML = `
+					<td class="email">${u.email}</td>
+					<td>${u.api_key || 'NO KEY'}</td>
+					<td>${u.days_left}</td>
+					<td>
+						<div class="actions">
+							<button class="btn-sm" onclick="updateExp('${u.email}', 14)">+14d</button>
+							<button class="btn-sm" onclick="updateExp('${u.email}', 30)">+30d</button>
+							<button class="btn-sm outline" style="color:var(--danger); border-color:var(--danger);" onclick="updateExp('${u.email}', -1)">-1d</button>
+						</div>
+					</td>
+				`;
+				tbody.appendChild(tr);
+			});
+		}
+
+		async function updateExp(email, days) {
+			if(!confirm("Update " + email + " by " + days + " days?")) return;
+			const res = await fetch('/api/admin/expiry', {
+				method: 'POST',
+				body: JSON.stringify({email: email, days: days})
+			});
+			if (!res.ok) alert("Failed to update expiry. Check console.");
+			loadUsers();
+		}
+	</script>
+</body>
+</html>
