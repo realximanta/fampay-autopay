@@ -2,49 +2,44 @@ export default {
   async email(message, env, ctx) {
     const rawEmail = await new Response(message.raw).text();
     
-    // --- P0 SECURITY FIX: Verify SPF, DKIM, and DMARC ---
-    // We check the Authentication-Results header added by Cloudflare
     const authResultsMatch = rawEmail.match(/Authentication-Results:\s*(.*?)\r?\n/i);
-    if (!authResultsMatch) {
-        console.log("❌ Rejected: No Authentication-Results header");
-        return;
-    }
-    
+    if (!authResultsMatch) return;
     const authResults = authResultsMatch[1].toLowerCase();
-    
-    // Require all three to pass. If any fail, drop the email.
-    if (!authResults.includes("spf=pass") || 
-        !authResults.includes("dkim=pass") || 
-        !authResults.includes("dmarc=pass")) {
-        console.log(`❌ Rejected: SPF/DKIM/DMARC failed. Results: ${authResults}`);
-        return; 
-    }
+    if (!authResults.includes("spf=pass") || !authResults.includes("dkim=pass") || !authResults.includes("dmarc=pass")) return;
 
-    // 1. Automatically verify Google Forwarding
     if (message.from.includes("forwarding-noreply@google.com")) {
         const match = rawEmail.match(/https:\/\/mail\.google\.com\/mail\/vf-[^\s"']+/);
-        if (match && match[0]) {
-            await fetch(match[0]);
-            console.log("✅ Google forwarding verified.");
-        }
+        if (match && match[0]) await fetch(match[0]);
         return;
     }
 
-    // 2. Parse FamApp Payment Email (Strict Regex)
     const amountMatch = rawEmail.match(/(?:You have successfully received|Received)\s*(?:₹|Rs\.?|INR)?\s*(\d{1,6}\.\d{2})/i);
+    const utrMatch = rawEmail.match(/UTR:\s*(\d+)/i); // Extracts UTR
     
-    if (amountMatch && amountMatch[1]) {
-        const fingerprint = amountMatch[1];
+    if (amountMatch && amountMatch[1] && utrMatch && utrMatch[1]) {
+        const amount = amountMatch[1];
+        const utr = utrMatch[1];
+        const ts = Date.now();
         
-        // Save to KV instantly with HMAC signature (P0 1.2 will be handled on Go side)
-        await env.PAYMENT_KV.put(`payment:${fingerprint}`, JSON.stringify({
-            received_at: Date.now(),
-            status: "paid"
-        }), { expirationTtl: 1800 }); // Increased TTL to 30 mins for safety
+        // Generate HMAC signature using Web Crypto API
+        const secret = env.KV_HMAC_SECRET; // Add this to Cloudflare Worker env vars!
+        const encoder = new TextEncoder();
+        const key = await crypto.subtle.importKey(
+            "raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+        );
         
-        console.log(`✅ Payment ₹${fingerprint} verified and saved.`);
-    } else {
-        console.log("⚠️ Email passed auth but did not match FamPay payment format.");
+        const payloadStr = `${amount}:${ts}:${utr}`;
+        const signatureBuffer = await crypto.subtle.sign("HMAC", key, encoder.encode(payloadStr));
+        const signature = Array.from(new Uint8Array(signatureBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+        await env.PAYMENT_KV.put(`payment:${amount}`, JSON.stringify({
+            amount: amount,
+            timestamp: ts,
+            utr: utr,
+            signature: signature
+        }), { expirationTtl: 1800 });
+        
+        console.log(`✅ Verified ₹${amount} (UTR: ${utr}) saved to KV.`);
     }
   }
 }
