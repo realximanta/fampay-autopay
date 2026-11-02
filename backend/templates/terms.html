@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Terms of Service | Auto-Pay</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { brand: { bg: '#000000', surface: '#0a0a0a', border: '#222222', text: '#ededed', muted: '#888888', accent: '#ffffff' } }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-brand-bg text-brand-text font-sans antialiased min-h-screen flex flex-col">
+    <!-- Navbar -->
+    <nav class="border-b border-brand-border bg-brand-surface px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+        <div class="flex items-center gap-2">
+            <a href="/" class="flex items-center gap-2 hover:opacity-80 transition">
+                <i data-lucide="zap" class="w-6 h-6 text-brand-accent"></i>
+                <span class="font-bold text-lg tracking-tight">Auto-Pay</span>
+            </a>
+        </div>
+        <div class="flex items-center gap-4 text-sm">
+            <a href="/docs" class="text-brand-muted hover:text-white transition">Documentation</a>
+            <a href="/privacy" class="text-brand-muted hover:text-white transition">Privacy Policy</a>
+            <a href="/api/login" class="bg-brand-accent text-black px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition">Sign In</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow container mx-auto px-6 py-12 max-w-4xl">
+        <div class="mb-10">
+            <h1 class="text-3xl font-bold mb-2">Terms of Service</h1>
+            <p class="text-brand-muted">Last Updated: 2nd November 2026</p>
+        </div>
+
+        <div class="space-y-8 text-brand-muted leading-relaxed">
+            <section>
+                <h2 class="text-xl font-semibold text-white mb-3">1. Agreement to Terms</h2>
+                <p>These Terms of Service ("Terms") govern your use of the Auto-Pay website, API, and mobile application (collectively, the "Service"), operated by <strong>Himanta Bhuyan</strong> ("we", "us", or "our").</p>
+                <p class="mt-2">By accessing or using the Service, you agree to be bound by these Terms. If you disagree with any part of the terms, you do not have permission to access the Service.</p>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-semibold text-white mb-3">2. Description of Service</h2>
+                <p>Auto-Pay provides an automated UPI payment verification API. The Service acts as a middleman to read FamApp payment notification emails from your linked Gmail account and verify transaction amounts.</p>
+                <p class="mt-2"><strong>Important:</strong> Auto-Pay is a verification tool, <strong>not a payment gateway or financial institution</strong>. We do not process, hold, or transfer funds. All payments are made directly via UPI to the merchant's VPA.</p>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-semibold text-white mb-3">3. User Responsibilities</h2>
+                <ul class="list-disc list-inside mt-2 space-y-1 ml-2">
+                    <li><strong>Account Security:</strong> You are responsible for maintaining the confidentiality of your API key. Do not share it with unauthorized third parties. If your key is compromised, you must revoke it immediately via the dashboard.</li>
+                    <li><strong>Accurate Information:</strong> You must sign in with the exact Gmail account that receives FamApp payment notifications. We are not responsible for missed verifications due to incorrectly linked emails.</li>
+                    <li><strong>Compliance:</strong> You agree to use the Service in compliance with all applicable local, state, and federal laws, including RBI regulations regarding UPI payments.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-semibold text-white mb-3">4. Subscriptions and Payments</h2>
+                <ul class="list-disc list-inside mt-2 space-y-1 ml-2">
+                    <li>API keys are issued for specific durations (e.g., 14 days, 30 days).</li>
+                    <li>Once an API key expires, the Service will reject verification requests until you recharge your subscription.</li>
+                    <li>All payments for subscription recharges are final and non-refundable. We do not offer prorated refunds for partial months or unused days.</li>
+                    <li>We reserve the right to change subscription prices at any time. Existing active keys will not be affected until their next renewal.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-semibold text-white mb-3">5. Prohibited Uses</h2>
+                <p>You agree not to use the Service:</p>
+                <ul class="list-disc list-inside mt-2 space-y-1 ml-2">
+                    <li>For any illegal or unauthorized purpose.</li>
+                    <li>To abuse, overload, or attempt to bypass the rate limits of the API.</li>
+                    <li>To reverse engineer, decompile, or attempt to extract the source code of the Service.</li>
+                    <li>To facilitate fraudulent transactions or money laundering.</li>
+                </ul>
+                <p class="mt-2">We reserve the right to immediately revoke your API key and ban your Gmail account from our system if you violate these rules.</p>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-semibold text-white mb-3">6. Limitation of Liability</h2>
+                <p>To the maximum extent permitted by law, <strong>Himanta Bhuyan</strong> shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from:</p>
+                <ul class="list-disc list-inside mt-2 space-y-1 ml-2">
+                    <li>Your access to or use of or inability to access or use the Service.</li>
+                    <li>Any conduct or content of any third party on the Service.</li>
+                    <li>Delays in email delivery from FamApp, Google, or Cloudflare.</li>
+                    <li>Unauthorized access, use, or alteration of your transmissions or content.</li>
+                </ul>
+                <p class="mt-2">We rely on third-party email infrastructure and do not guarantee 100% uptime or instant verification.</p>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-semibold text-white mb-3">7. Modifications to Service</h2>
+                <p>We reserve the right to modify or discontinue, temporarily or permanently, the Service (or any part thereof) with or without notice. We shall not be liable to you or to any third party for any modification, suspension, or discontinuance of the Service.</p>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-semibold text-white mb-3">8. Governing Law</h2>
+                <p>These Terms shall be governed and construed in accordance with the laws of <strong>India</strong>, without regard to its conflict of law provisions. Any disputes arising from these terms shall be subject to the exclusive jurisdiction of the courts in Assam, India.</p>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-semibold text-white mb-3">9. Contact Us</h2>
+                <p>If you have any questions about these Terms, please contact:</p>
+                <div class="mt-2 bg-brand-surface border border-brand-border p-4 rounded-lg inline-block">
+                    <p class="text-white font-medium">Himanta Bhuyan</p>
+                    <p>Email: <a href="mailto:official@ximanta.xyz" class="text-blue-400 hover:underline">official@ximanta.xyz</a></p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-brand-border py-8 text-center text-sm text-brand-muted mt-12">
+        <p>&copy; 2026 Auto-Pay by Himanta Bhuyan. <a href="/privacy" class="hover:text-white">Privacy</a> &middot; <a href="/terms" class="hover:text-white">Terms</a></p>
+    </footer>
+
+    <script>lucide.createIcons();</script>
+</body>
+</html>
