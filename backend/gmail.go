@@ -27,21 +27,15 @@ var oauthConfig = &oauth2.Config{
 	Endpoint: google.Endpoint,
 }
 
-// P0 2.2: PKCE Implementation (Proof Key for Code Exchange)
 func GeneratePKCE() (string, string) {
-	// Generate a secure random verifier
 	verifier := generateSecureRandomString(64)
-	
-	// Create the SHA256 challenge
 	h := sha256.New()
 	h.Write([]byte(verifier))
 	challenge := base64.RawURLEncoding.EncodeToString(h.Sum(nil))
-	
 	return verifier, challenge
 }
 
 func GetLoginURL(state string, challenge string) string {
-	// P0 2.1: State parameter, P0 2.2: PKCE challenge
 	return oauthConfig.AuthCodeURL(state, 
 		oauth2.AccessTypeOffline, 
 		oauth2.ApprovalForce,
@@ -51,7 +45,6 @@ func GetLoginURL(state string, challenge string) string {
 }
 
 func ExchangeCode(ctx context.Context, code string, verifier string) (*oauth2.Token, error) {
-	// Pass the verifier during exchange
 	return oauthConfig.Exchange(ctx, code, oauth2.SetAuthURLParam("code_verifier", verifier))
 }
 
@@ -77,14 +70,12 @@ func SetupAutoForwarding(ctx context.Context, token *oauth2.Token) error {
 
 	targetEmail := "payments@auto-payment.ximanta.xyz"
 	
-	// 1. Request forwarding address
 	req := &gmail.ForwardingAddress{ForwardingEmail: targetEmail}
 	_, err = srv.Users.Settings.ForwardingAddresses.Create("me", req).Do()
 	if err != nil && !strings.Contains(err.Error(), "already exists") {
 		fmt.Println("Forwarding Create Error:", err)
 	}
 
-	// 2. Poll until Cloudflare Worker clicks the verification link
 	for i := 0; i < 15; i++ {
 		addr, err := srv.Users.Settings.ForwardingAddresses.Get("me", targetEmail).Do()
 		if err == nil && addr.VerificationStatus == "accepted" {
@@ -93,18 +84,15 @@ func SetupAutoForwarding(ctx context.Context, token *oauth2.Token) error {
 		time.Sleep(2 * time.Second)
 	}
 
-	// 3. Enable forwarding
 	_, err = srv.Users.Settings.UpdateAutoForwarding("me", &gmail.AutoForwarding{
 		Enabled:      true,
 		EmailAddress: targetEmail,
-		Disposition:  "leaveInInbox", // Keeps a copy in their Gmail
+		Disposition:  "leaveInInbox",
 	}).Do()
 	
 	if err != nil {
 		fmt.Println("AutoForwarding Update Error:", err)
 		return err
 	}
-	
-	fmt.Println("✅ Auto-forwarding successfully configured for", targetEmail)
 	return nil
 }
