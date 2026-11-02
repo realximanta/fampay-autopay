@@ -14,6 +14,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 )
 
 var cfAccountID = os.Getenv("CF_ACCOUNT_ID")
@@ -25,10 +26,10 @@ var kvBaseURL = fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/st
 func getEncryptionKey() []byte {
 	secret := os.Getenv("TOKEN_ENCRYPTION_KEY")
 	if secret == "" {
-		secret = "fallback-key-change-me-in-render" // Should never be used if env var is set
+		secret = "fallback-key-change-me-in-render"
 	}
 	hash := sha256.Sum256([]byte(secret))
-	return hash[:] // Returns exactly 32 bytes for AES-256
+	return hash[:]
 }
 
 func EncryptToken(plaintext string) (string, error) {
@@ -151,7 +152,7 @@ func KVDelete(key string) {
 func IsUTRUsed(utr string) bool {
 	var data PaymentPayload
 	if err := KVGet("utr:"+utr, &data); err == nil {
-		return true // UTR found in permanent storage
+		return true
 	}
 	return false
 }
@@ -160,12 +161,7 @@ func MarkUTRUsed(utr string, amount string, email string) {
 	payload := map[string]interface{}{
 		"amount": amount,
 		"email":  email,
-		"used_at": fmt.Sprintf("%d", GetUnixTime()),
+		"used_at": fmt.Sprintf("%d", time.Now().Unix()),
 	}
-	// TTL of 0 means it stays forever (or until manually deleted via admin)
 	KVPut("utr:"+utr, payload, 0)
-}
-
-func GetUnixTime() int64 {
-	return timeNow().Unix()
 }
