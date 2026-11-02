@@ -105,7 +105,7 @@
 			document.getElementById('qrContainer').style.display = 'block';
 			document.getElementById('qrStatus').style.display = 'block';
 			pollInterval = setInterval(async () => {
-				const v = await fetch('/api/verify', { method: 'POST', body: JSON.stringify({fingerprint: data.fingerprint}) });
+				const v = await fetch('/api/recharge/verify', { method: 'POST', body: JSON.stringify({fingerprint: data.fingerprint}) });
 				const vData = await v.json();
 				if (vData.status === 'exact') {
 					clearInterval(pollInterval);
