@@ -36,7 +36,7 @@ func main() {
 	http.HandleFunc("/api/revoke", HandleRevoke)
 	http.HandleFunc("/api/qr", HandleGenerateQR)
 	http.HandleFunc("/api/verify", HandleVerify)
-	http.HandleFunc("/api/recharge/verify", HandleRechargeVerify) // <--- THE FIX
+	http.HandleFunc("/api/recharge/verify", HandleRechargeVerify)
 	http.HandleFunc("/qr", HandleQR)
 	
 	// Admin API
@@ -44,6 +44,7 @@ func main() {
 	http.HandleFunc("/api/admin/logout", HandleAdminLogout)
 	http.HandleFunc("/api/admin/users", HandleAdminUsers)
 	http.HandleFunc("/api/admin/expiry", HandleAdminUpdateExpiry)
+	http.HandleFunc("/api/admin/revoke", HandleAdminRevoke) // NEW
 	
 	// HTML Pages
 	http.HandleFunc("/dashboard", func(w http.ResponseWriter, r *http.Request) {
