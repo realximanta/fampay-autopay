@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Dashboard | Auto-Pay</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+	<style>
+		:root {
+			--bg: #000000; --surface: #0a0a0a; --border: #222222;
+			--text: #ededed; --text-muted: #888888;
+			--accent: #ffffff; --accent-text: #000000;
+			--danger: #ff4444; --success: #00cc66;
+		}
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body {
+			font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text);
+			min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
+		}
+		.card {
+			background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+			padding: 40px; width: 100%; max-width: 480px; text-align: center;
+			box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+		}
+		h1 { font-size: 20px; font-weight: 600; margin-bottom: 30px; letter-spacing: -0.5px; }
+		.info-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 12px; color: var(--text-muted); }
+		.info-row span:last-child { color: var(--text); font-weight: 500; }
+		.key-box { background: #000; border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin: 24px 0; }
+		.key-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 8px; }
+		.api-key { font-family: 'JetBrains Mono', monospace; font-size: 22px; color: var(--text); letter-spacing: 1px; }
+		button {
+			background: var(--accent); color: var(--accent-text); border: none; padding: 12px 24px;
+			border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; width: 100%; transition: opacity 0.2s;
+		}
+		button:hover { opacity: 0.8; }
+		button.outline { background: transparent; border: 1px solid var(--border); color: var(--text); margin-bottom: 24px; }
+		button.outline:hover { background: var(--border); }
+		button.danger { border-color: var(--danger); color: var(--danger); }
+		.divider { height: 1px; background: var(--border); margin: 24px 0; }
+		.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+		.grid button { background: transparent; border: 1px solid var(--border); color: var(--text); }
+		.grid button:hover { background: var(--border); }
+		.qr-container { display: none; background: #fff; padding: 16px; border-radius: 8px; margin-top: 24px; }
+		.qr-container img { width: 100%; display: block; }
+		.qr-text { font-size: 13px; margin-bottom: 12px; color: var(--text-muted); }
+		.footer { margin-top: 32px; font-size: 12px; color: var(--text-muted); display: flex; justify-content: center; gap: 16px; }
+		.footer a { color: var(--text-muted); text-decoration: none; }
+		.footer a:hover { color: var(--text); }
+	</style>
+</head>
+<body>
+	<div class="card">
+		<h1>Auto-Pay Dashboard</h1>
+		<div class="info-row"><span>Email</span><span id="email">Loading...</span></div>
+		<div class="info-row"><span>Days Left</span><span id="days">0</span></div>
+		
+		<div class="key-box">
+			<div class="key-label">API Key</div>
+			<div id="apikey" class="api-key">...</div>
+		</div>
+		
+		<button class="outline danger" onclick="revoke()">Revoke Key</button>
+		<div class="divider"></div>
+		
+		<p style="font-size: 13px; font-weight: 500; margin-bottom: 16px;">Recharge</p>
+		<div class="grid">
+			<button onclick="recharge('biweekly')">₹10 / 14d</button>
+			<button onclick="recharge('monthly')">₹20 / 30d</button>
+		</div>
+
+		<div id="qrArea">
+			<div class="qr-text">Pay exactly: <span id="payAmount" style="color:#fff; font-family:'JetBrains Mono'"></span></div>
+			<div class="qr-container" id="qrContainer"><img id="qrImg" /></div>
+			<p id="qrStatus" style="font-size: 12px; color: var(--text-muted); margin-top: 12px; display: none;">Awaiting payment...</p>
+		</div>
+
+		<div class="footer">
+			<a href="/privacy">Privacy</a>
+			<a href="/terms">Terms</a>
+			<a href="/api/logout">Logout</a>
+		</div>
+	</div>
+
+	<script>
+		async function load() {
+			const res = await fetch('/api/me', { cache: 'no-store' });
+			if (res.status === 401) return window.location.href = '/api/login';
+			const data = await res.json();
+			document.getElementById('email').innerText = data.email;
+			document.getElementById('apikey').innerText = data.api_key;
+			document.getElementById('days').innerText = data.days_left;
+		}
+		async function revoke() {
+			if(!confirm("Are you sure? Your old API key will stop working immediately.")) return;
+			await fetch('/api/revoke', {method: 'POST'});
+			load();
+		}
+		let pollInterval = null;
+		async function recharge(plan) {
+			if(pollInterval) clearInterval(pollInterval);
+			const res = await fetch('/api/qr', { method: 'POST', body: JSON.stringify({plan_id: plan}) });
+			const data = await res.json();
+			document.getElementById('payAmount').innerText = '₹' + data.fingerprint;
+			document.getElementById('qrImg').src = 'data:image/png;base64,' + data.qr_base64;
+			document.getElementById('qrContainer').style.display = 'block';
+			document.getElementById('qrStatus').style.display = 'block';
+			pollInterval = setInterval(async () => {
+				const v = await fetch('/api/verify', { method: 'POST', body: JSON.stringify({fingerprint: data.fingerprint}) });
+				const vData = await v.json();
+				if (vData.status === 'exact') {
+					clearInterval(pollInterval);
+					alert('Payment Successful!');
+					document.getElementById('qrContainer').style.display = 'none';
+					document.getElementById('qrStatus').style.display = 'none';
+					load();
+				}
+			}, 3000);
+		}
+		load();
+	</script>
+</body>
+</html>
