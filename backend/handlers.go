@@ -160,6 +160,26 @@ func HandleGetMe(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// NEW: Get History Endpoint
+func HandleGetHistory(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("session")
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Unauthorized"})
+		return
+	}
+	var email string
+	if err := KVGet("session:"+cookie.Value, &email); err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Session expired"})
+		return
+	}
+
+	history, _ := GetUserHistory(email)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(history)
+}
+
 func HandleRevoke(w http.ResponseWriter, r *http.Request) {
 	cookie, _ := r.Cookie("session")
 	var email string
@@ -203,6 +223,9 @@ func HandleGenerateQR(w http.ResponseWriter, r *http.Request) {
 	
 	pending := PendingData{Email: email, Amount: amount, Days: days}
 	KVPut("pending:"+fp, pending, 900)
+
+	// Log to History
+	LogHistory(email, "QR Generated", fp, "generated")
 
 	upiURI := fmt.Sprintf("upi://pay?pa=%s&pn=%s&am=%s&tn=%s", 
 		"himanta15@fam", "AutoPay", fp, generateSecureRandomString(8))
@@ -269,11 +292,13 @@ func HandleRechargeVerify(w http.ResponseWriter, r *http.Request) {
 	KVDelete("payment:" + req.Fingerprint)
 	KVDelete("pending:" + req.Fingerprint)
 
+	// Log to History
+	LogHistory(email, "Subscription Recharged", req.Fingerprint, "exact")
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{"status": "exact", "verified": true})
 }
 
-// FIXED Test 3: Relaxed Regex to accept 10-64 chars
 func HandleVerify(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -290,7 +315,6 @@ func HandleVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// FIXED: Regex changed from {20,64} to {10,64}
 	if match, _ := regexp.MatchString(`^[a-zA-Z0-9]{10,64}$`, apiKey); !match {
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]interface{}{"verified": false, "status": "invalid_key", "error": "Invalid key format"})
@@ -340,6 +364,9 @@ func HandleVerify(w http.ResponseWriter, r *http.Request) {
 	KVPut(consumeKey, payment, 86400)
 	MarkUTRUsed(payment.UTR, amountStr, userKey.Email)
 	KVDelete("payment:" + amountStr)
+
+	// Log to History
+	LogHistory(userKey.Email, "API Verify", amountStr, "exact")
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
