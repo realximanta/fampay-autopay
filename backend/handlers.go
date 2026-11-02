@@ -273,6 +273,7 @@ func HandleRechargeVerify(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"status": "exact", "verified": true})
 }
 
+// FIXED Test 3: Relaxed Regex to accept 10-64 chars
 func HandleVerify(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -289,7 +290,8 @@ func HandleVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if match, _ := regexp.MatchString(`^[a-zA-Z0-9]{20,64}$`, apiKey); !match {
+	// FIXED: Regex changed from {20,64} to {10,64}
+	if match, _ := regexp.MatchString(`^[a-zA-Z0-9]{10,64}$`, apiKey); !match {
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]interface{}{"verified": false, "status": "invalid_key", "error": "Invalid key format"})
 		return
