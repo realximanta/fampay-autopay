@@ -19,9 +19,13 @@ import (
 
 var cfAccountID = os.Getenv("CF_ACCOUNT_ID")
 var cfNamespaceID = os.Getenv("CF_NAMESPACE_ID")
+var cfHistoryNamespaceID = os.Getenv("CF_HISTORY_NAMESPACE_ID")
 var cfAPIToken = os.Getenv("CF_API_TOKEN")
-var kvBaseURL = fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/values", cfAccountID, cfNamespaceID)
 
+var kvBaseURL = fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/values", cfAccountID, cfNamespaceID)
+var historyBaseURL = fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/values", cfAccountID, cfHistoryNamespaceID)
+
+// --- ENCRYPTION ---
 func getEncryptionKey() []byte {
 	secret := os.Getenv("TOKEN_ENCRYPTION_KEY")
 	if secret == "" {
@@ -81,6 +85,7 @@ func DecryptToken(encoded string) (string, error) {
 	return string(plaintext), nil
 }
 
+// --- HMAC SIGNATURE ---
 func VerifyKVSignature(payload string, signature string) bool {
 	secret := os.Getenv("KV_HMAC_SECRET")
 	if secret == "" {
@@ -92,6 +97,7 @@ func VerifyKVSignature(payload string, signature string) bool {
 	return hmac.Equal([]byte(expected), []byte(signature))
 }
 
+// --- STRUCTS ---
 type KeyData struct {
 	Email          string `json:"email"`
 	ExpiresAt      int64  `json:"expires_at"`
@@ -111,6 +117,14 @@ type PaymentPayload struct {
 	Signature string `json:"signature"`
 }
 
+type HistoryEntry struct {
+	Event     string `json:"event"`
+	Amount    string `json:"amount"`
+	Status    string `json:"status"`
+	Timestamp int64  `json:"timestamp"`
+}
+
+// --- CORE KV FUNCTIONS ---
 func KVGet(key string, v interface{}) error {
 	req, _ := http.NewRequest("GET", kvBaseURL+"/"+key, nil)
 	req.Header.Set("Authorization", "Bearer "+cfAPIToken)
@@ -144,6 +158,7 @@ func KVDelete(key string) {
 	http.DefaultClient.Do(req)
 }
 
+// --- UTR TRACKING ---
 func IsUTRUsed(utr string) bool {
 	var data PaymentPayload
 	if err := KVGet("utr:"+utr, &data); err == nil {
@@ -159,4 +174,73 @@ func MarkUTRUsed(utr string, amount string, email string) {
 		"used_at": fmt.Sprintf("%d", time.Now().Unix()),
 	}
 	KVPut("utr:"+utr, payload, 0)
+}
+
+// --- HISTORY KV FUNCTIONS ---
+func LogHistory(email, event, amount, status string) {
+	if cfHistoryNamespaceID == "" {
+		return // Silently fail if history KV isn't configured
+	}
+	ts := time.Now().Unix()
+	// Key format: history:email:timestamp:randomString
+	key := fmt.Sprintf("history:%s:%d:%s", email, ts, generateSecureRandomString(4))
+	entry := HistoryEntry{Event: event, Amount: amount, Status: status, Timestamp: ts}
+	body, _ := json.Marshal(entry)
+
+	req, _ := http.NewRequest("PUT", historyBaseURL+"/"+key, bytes.NewBuffer(body))
+	req.Header.Set("Authorization", "Bearer "+cfAPIToken)
+	req.Header.Set("Content-Type", "application/json")
+	req.URL.RawQuery = "expiration_ttl=7776000" // 90 days retention
+	http.DefaultClient.Do(req)
+}
+
+func GetUserHistory(email string) ([]HistoryEntry, error) {
+	if cfHistoryNamespaceID == "" {
+		return []HistoryEntry{}, nil
+	}
+	listURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/keys?prefix=history:%s:", cfAccountID, cfHistoryNamespaceID, email)
+	req, _ := http.NewRequest("GET", listURL, nil)
+	req.Header.Set("Authorization", "Bearer "+cfAPIToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var res struct {
+		Result []struct {
+			Name string `json:"name"`
+		} `json:"result"`
+	}
+	json.NewDecoder(resp.Body).Decode(&res)
+
+	var entries []HistoryEntry
+	// Fetch the latest 30 records to prevent long load times
+	start := 0
+	if len(res.Result) > 30 {
+		start = len(res.Result) - 30
+	}
+
+	for _, k := range res.Result[start:] {
+		var entry HistoryEntry
+		valURL := historyBaseURL + "/" + k.Name
+		vReq, _ := http.NewRequest("GET", valURL, nil)
+		vReq.Header.Set("Authorization", "Bearer "+cfAPIToken)
+		vResp, err := http.DefaultClient.Do(vReq)
+		if err == nil && vResp.StatusCode == 200 {
+			b, _ := io.ReadAll(vResp.Body)
+			json.Unmarshal(b, &entry)
+			entries = append(entries, entry)
+		}
+		if vResp != nil {
+			vResp.Body.Close()
+		}
+	}
+
+	// Reverse slice to show newest first
+	for i, j := 0, len(entries)-1; i < j; i, j = i+1, j-1 {
+		entries[i], entries[j] = entries[j], entries[i]
+	}
+
+	return entries, nil
 }
