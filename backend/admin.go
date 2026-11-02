@@ -153,7 +153,7 @@ func HandleAdminUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store") // Prevent browser caching
+	w.Header().Set("Cache-Control", "no-store")
 	json.NewEncoder(w).Encode(users)
 }
 
@@ -164,7 +164,6 @@ func HandleAdminUpdateExpiry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// FIXED BUG: Passing a string pointer instead of nil
 	var val string
 	if err := KVGet("admin_session:"+cookie.Value, &val); err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
