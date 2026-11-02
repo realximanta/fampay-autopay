@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Auto-Pay | Automated Payment Verification</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { brand: { bg: '#000000', surface: '#0a0a0a', border: '#222222', text: '#ededed', muted: '#888888', accent: '#ffffff' } }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-brand-bg text-brand-text font-sans antialiased min-h-screen flex flex-col">
+    <!-- Navbar -->
+    <nav class="border-b border-brand-border bg-brand-surface px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-2">
+            <i data-lucide="zap" class="w-6 h-6 text-brand-accent"></i>
+            <span class="font-bold text-lg tracking-tight">Auto-Pay</span>
+        </div>
+        <div class="flex items-center gap-6 text-sm text-brand-muted">
+            <a href="/docs" class="hover:text-white transition">Documentation</a>
+            <a href="/api/login" class="bg-brand-accent text-black px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition">Sign In</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow flex flex-col items-center justify-center text-center px-6 relative overflow-hidden">
+        <!-- Background Gradient -->
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-blue-500/10 rounded-full blur-3xl -z-10 pointer-events-none"></div>
+
+        <div class="max-w-3xl mx-auto py-20">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-surface border border-brand-border text-sm mb-6">
+                <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                <span class="text-brand-muted">API v2.0 is Live</span>
+            </div>
+            
+            <h1 class="text-5xl md:text-6xl font-bold tracking-tight mb-6 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+                Automated Payment<br>Verification
+            </h1>
+            
+            <p class="text-xl text-brand-muted mb-10 max-w-2xl mx-auto">
+                Accept UPI payments via FamApp and verify them instantly. No webhooks, no gateways, no manual checking. Just pure automation.
+            </p>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <!-- APK Download Button -->
+                <a id="downloadAppBtn" href="#" class="w-full sm:w-auto bg-green-500 text-black px-8 py-3 rounded-lg font-semibold hover:bg-green-400 transition flex items-center justify-center gap-2">
+                    <i data-lucide="download" class="w-5 h-5"></i> 
+                    <span id="downloadBtnText">Download App</span>
+                </a>
+
+                <a href="/api/login" class="w-full sm:w-auto bg-brand-accent text-black px-8 py-3 rounded-lg font-semibold hover:bg-gray-200 transition flex items-center justify-center gap-2">
+                    <i data-lucide="log-in" class="w-5 h-5"></i> Sign In with Google
+                </a>
+                
+                <a href="/docs" class="w-full sm:w-auto bg-transparent border border-brand-border text-white px-8 py-3 rounded-lg font-semibold hover:bg-white/5 transition flex items-center justify-center gap-2">
+                    <i data-lucide="book-open" class="w-5 h-5"></i> View Documentation
+                </a>
+            </div>
+
+            <!-- Feature Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-24 text-left">
+                <div class="bg-brand-surface border border-brand-border p-6 rounded-xl">
+                    <i data-lucide="zap" class="w-8 h-8 text-yellow-400 mb-4"></i>
+                    <h3 class="font-semibold text-lg mb-2">Instant Verification</h3>
+                    <p class="text-sm text-brand-muted">Payments are verified within seconds using our smart email parsing and KV pipeline.</p>
+                </div>
+                <div class="bg-brand-surface border border-brand-border p-6 rounded-xl">
+                    <i data-lucide="shield-check" class="w-8 h-8 text-green-400 mb-4"></i>
+                    <h3 class="font-semibold text-lg mb-2">Zero Fraud</h3>
+                    <p class="text-sm text-brand-muted">Amount fingerprinting (1-99 paise) ensures every transaction is uniquely identified.</p>
+                </div>
+                <div class="bg-brand-surface border border-brand-border p-6 rounded-xl">
+                    <i data-lucide="code" class="w-8 h-8 text-blue-400 mb-4"></i>
+                    <h3 class="font-semibold text-lg mb-2">Developer First</h3>
+                    <p class="text-sm text-brand-muted">Simple REST API with official Python and JavaScript SDK examples.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-brand-border py-8 text-center text-sm text-brand-muted">
+        <p>&copy; 2026 Auto-Pay by Himanta Bhuyan. <a href="/privacy" class="hover:text-white">Privacy</a> &middot; <a href="/terms" class="hover:text-white">Terms</a></p>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+
+        // Fetch the latest release version from the backend
+        async function fetchLatestRelease() {
+            try {
+                const res = await fetch('/api/latest-release');
+                if (!res.ok) throw new Error('Failed to fetch release');
+                
+                const data = await res.json();
+                
+                const btn = document.getElementById('downloadAppBtn');
+                const txt = document.getElementById('downloadBtnText');
+                
+                if (data.version && data.download_url) {
+                    txt.innerText = `Download APK (${data.version})`;
+                    btn.href = data.download_url;
+                }
+            } catch (err) {
+                console.error('Could not load release info:', err);
+                // Fallback: Keep the button as "Download App" linking to GitHub releases page
+                const btn = document.getElementById('downloadAppBtn');
+                btn.href = 'https://github.com/realximanta/fampay-autopay/releases/latest';
+            }
+        }
+
+        fetchLatestRelease();
+    </script>
+</body>
+</html>
