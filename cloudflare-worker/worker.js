@@ -14,15 +14,14 @@ export default {
     }
 
     const amountMatch = rawEmail.match(/(?:You have successfully received|Received)\s*(?:₹|Rs\.?|INR)?\s*(\d{1,6}\.\d{2})/i);
-    const utrMatch = rawEmail.match(/UTR:\s*(\d+)/i); // Extracts UTR
+    const utrMatch = rawEmail.match(/UTR:\s*(\d+)/i);
     
     if (amountMatch && amountMatch[1] && utrMatch && utrMatch[1]) {
         const amount = amountMatch[1];
         const utr = utrMatch[1];
         const ts = Date.now();
         
-        // Generate HMAC signature using Web Crypto API
-        const secret = env.KV_HMAC_SECRET; // Add this to Cloudflare Worker env vars!
+        const secret = env.KV_HMAC_SECRET; 
         const encoder = new TextEncoder();
         const key = await crypto.subtle.importKey(
             "raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
