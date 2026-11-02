@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Privacy Policy | Auto-Pay</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { brand: { bg: '#000000', surface: '#0a0a0a', border: '#222222', text: '#ededed', muted: '#888888', accent: '#ffffff' } }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-brand-bg text-brand-text font-sans antialiased min-h-screen flex flex-col">
+    <!-- Navbar -->
+    <nav class="border-b border-brand-border bg-brand-surface px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+        <div class="flex items-center gap-2">
+            <a href="/" class="flex items-center gap-2 hover:opacity-80 transition">
+                <i data-lucide="zap" class="w-6 h-6 text-brand-accent"></i>
+                <span class="font-bold text-lg tracking-tight">Auto-Pay</span>
+            </a>
+        </div>
+        <div class="flex items-center gap-4 text-sm">
+            <a href="/docs" class="text-brand-muted hover:text-white transition">Documentation</a>
+            <a href="/terms" class="text-brand-muted hover:text-white transition">Terms of Service</a>
+            <a href="/api/login" class="bg-brand-accent text-black px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition">Sign In</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow container mx-auto px-6 py-12 max-w-4xl">
+        <div class="mb-10">
+            <h1 class="text-3xl font-bold mb-2">Privacy Policy</h1>
+            <p class="text-brand-muted">Last Updated: 2nd November 2026</p>
+        </div>
+
+        <div class="space-y-8 text-brand-muted leading-relaxed">
+            <section>
+                <h2 class="text-xl font-semibold text-white mb-3">1. Introduction</h2>
+                <p>Welcome to Auto-Pay ("we", "our", or "us"). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website, API, and mobile application. This service is operated by <strong>Himanta Bhuyan</strong>.</p>
+                <p class="mt-2">By using Auto-Pay, you agree to the collection and use of information in accordance with this policy.</p>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-semibold text-white mb-3">2. Information We Collect</h2>
+                <h3 class="text-lg font-medium text-gray-300 mt-4 mb-2">2.1 Google Account & Gmail Data</h3>
+                <p>To function correctly, our API requires access to your Gmail inbox. When you sign in using Google OAuth, we request the following scopes:</p>
+                <ul class="list-disc list-inside mt-2 space-y-1 ml-2">
+                    <li><code class="text-white bg-brand-surface px-1 rounded">gmail.readonly</code>: We read emails solely to locate FamApp payment notifications and verify transaction amounts.</li>
+                    <li><code class="text-white bg-brand-surface px-1 rounded">gmail.settings.sharing</code>: We configure automatic email forwarding for FamApp notifications to a secure Cloudflare Worker to ensure instant payment verification.</li>
+                    <li><code class="text-white bg-brand-surface px-1 rounded">userinfo.email</code>: To identify your account and link it to your unique API key.</li>
+                </ul>
+                <p class="mt-2"><strong>We do not read, store, sell, or share your personal emails.</strong> The system only scans for emails matching the exact FamApp payment template.</p>
+
+                <h3 class="text-lg font-medium text-gray-300 mt-4 mb-2">2.2 Authentication and API Data</h3>
+                <p>We generate and store your API key. Your API key is required to query our verification endpoints. We store this key and your account expiry date in a secure Cloudflare KV database.</p>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-semibold text-white mb-3">3. How We Use Your Information</h2>
+                <ul class="list-disc list-inside mt-2 space-y-1 ml-2">
+                    <li>To verify UPI payments made via FamApp automatically.</li>
+                    <li>To manage your API key, subscription status, and expiration.</li>
+                    <li>To send you essential transactional emails (e.g., subscription expiry warnings) using our email provider.</li>
+                    <li>To monitor and prevent abuse, fraud, or security breaches.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-semibold text-white mb-3">4. Data Retention</h2>
+                <p>We retain your encrypted Google refresh token and API key for as long as your account is active. If you revoke your API key, the association between your key and your Gmail account is immediately destroyed. We do not retain email contents; they are parsed in memory and discarded.</p>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-semibold text-white mb-3">5. Security of Your Data</h2>
+                <p>The security of your data is paramount. We implement industry-standard measures:</p>
+                <ul class="list-disc list-inside mt-2 space-y-1 ml-2">
+                    <li>Gmail refresh tokens are encrypted using AES-256-GCM before being stored.</li>
+                    <li>All API communication is encrypted via HTTPS.</li>
+                    <li>Payment data is verified using HMAC-SHA256 signatures to prevent tampering.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-semibold text-white mb-3">6. Your Rights</h2>
+                <p>You have the right to:</p>
+                <ul class="list-disc list-inside mt-2 space-y-1 ml-2">
+                    <li>Revoke our access to your Google account at any time via your <a href="https://myaccount.google.com/permissions" class="text-blue-400 hover:underline">Google Account Permissions</a>.</li>
+                    <li>Revoke your API key via the dashboard.</li>
+                    <li>Request the deletion of your account and associated data by contacting us.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-semibold text-white mb-3">7. Third-Party Services</h2>
+                <p>We utilize the following third-party services to operate:</p>
+                <ul class="list-disc list-inside mt-2 space-y-1 ml-2">
+                    <li><strong>Google Cloud Console:</strong> For OAuth authentication and Gmail API access.</li>
+                    <li><strong>Render:</strong> For hosting the backend API server.</li>
+                    <li><strong>Cloudflare:</strong> For KV database storage, Email Routing, and Workers.</li>
+                    <li><strong>Resend:</strong> For sending transactional emails.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2 class="text-xl font-semibold text-white mb-3">8. Contact Us</h2>
+                <p>If you have any questions about this Privacy Policy, please contact:</p>
+                <div class="mt-2 bg-brand-surface border border-brand-border p-4 rounded-lg inline-block">
+                    <p class="text-white font-medium">Himanta Bhuyan</p>
+                    <p>Email: <a href="mailto:official@ximanta.xyz" class="text-blue-400 hover:underline">official@ximanta.xyz</a></p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-brand-border py-8 text-center text-sm text-brand-muted mt-12">
+        <p>&copy; 2026 Auto-Pay by Himanta Bhuyan. <a href="/privacy" class="hover:text-white">Privacy</a> &middot; <a href="/terms" class="hover:text-white">Terms</a></p>
+    </footer>
+
+    <script>lucide.createIcons();</script>
+</body>
+</html>
