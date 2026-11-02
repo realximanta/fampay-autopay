@@ -205,3 +205,38 @@ func HandleAdminUpdateExpiry(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"success": true}`))
 }
+
+// NEW: Admin Revoke Key
+func HandleAdminRevoke(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("admin_session")
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	var val string
+	if err := KVGet("admin_session:"+cookie.Value, &val); err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	email := r.URL.Query().Get("email")
+	if email == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var oldKeyStr string
+	if err := KVGet("email_key:"+email, &oldKeyStr); err == nil {
+		KVDelete("key:" + oldKeyStr)
+	}
+
+	newKeyStr := generateSecureRandomString(20)
+	var userKey KeyData
+	KVGet("user:"+email, &userKey)
+	
+	KVPut("key:"+newKeyStr, userKey, 0)
+	KVPut("email_key:"+email, newKeyStr, 0)
+
+	LogAdminAction(r.RemoteAddr, "admin_revoke", "Revoked key for "+email)
+	w.WriteHeader(http.StatusOK)
+}
