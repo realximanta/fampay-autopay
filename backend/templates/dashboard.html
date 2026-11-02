@@ -4,84 +4,126 @@
 	<meta charset="UTF-8">
 	<title>Dashboard | Auto-Pay</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-	<style>
-		:root {
-			--bg: #000000; --surface: #0a0a0a; --border: #222222;
-			--text: #ededed; --text-muted: #888888;
-			--accent: #ffffff; --accent-text: #000000;
-			--danger: #ff4444; --success: #00cc66;
+	<!-- Tailwind CSS via CDN -->
+	<script src="https://cdn.tailwindcss.com"></script>
+	<!-- Google Fonts -->
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+	<!-- Lucide Icons -->
+	<script src="https://unpkg.com/lucide@latest"></script>
+	<script>
+		tailwind.config = {
+			theme: {
+				extend: {
+					fontFamily: { sans: ['Inter', 'sans-serif'] },
+					colors: {
+						brand: { bg: '#000000', surface: '#0a0a0a', border: '#222222', text: '#ededed', muted: '#888888', accent: '#ffffff' }
+					}
+				}
+			}
 		}
-		* { box-sizing: border-box; margin: 0; padding: 0; }
-		body {
-			font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text);
-			min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
-		}
-		.card {
-			background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-			padding: 40px; width: 100%; max-width: 480px; text-align: center;
-			box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-		}
-		h1 { font-size: 20px; font-weight: 600; margin-bottom: 30px; letter-spacing: -0.5px; }
-		.info-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 12px; color: var(--text-muted); }
-		.info-row span:last-child { color: var(--text); font-weight: 500; }
-		.key-box { background: #000; border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin: 24px 0; }
-		.key-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 8px; }
-		.api-key { font-family: 'JetBrains Mono', monospace; font-size: 22px; color: var(--text); letter-spacing: 1px; }
-		button {
-			background: var(--accent); color: var(--accent-text); border: none; padding: 12px 24px;
-			border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; width: 100%; transition: opacity 0.2s;
-		}
-		button:hover { opacity: 0.8; }
-		button.outline { background: transparent; border: 1px solid var(--border); color: var(--text); margin-bottom: 24px; }
-		button.outline:hover { background: var(--border); }
-		button.danger { border-color: var(--danger); color: var(--danger); }
-		.divider { height: 1px; background: var(--border); margin: 24px 0; }
-		.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-		.grid button { background: transparent; border: 1px solid var(--border); color: var(--text); }
-		.grid button:hover { background: var(--border); }
-		.qr-container { display: none; background: #fff; padding: 16px; border-radius: 8px; margin-top: 24px; }
-		.qr-container img { width: 100%; display: block; }
-		.qr-text { font-size: 13px; margin-bottom: 12px; color: var(--text-muted); }
-		.footer { margin-top: 32px; font-size: 12px; color: var(--text-muted); display: flex; justify-content: center; gap: 16px; }
-		.footer a { color: var(--text-muted); text-decoration: none; }
-		.footer a:hover { color: var(--text); }
-	</style>
+	</script>
 </head>
-<body>
-	<div class="card">
-		<h1>Auto-Pay Dashboard</h1>
-		<div class="info-row"><span>Email</span><span id="email">Loading...</span></div>
-		<div class="info-row"><span>Days Left</span><span id="days">0</span></div>
-		
-		<div class="key-box">
-			<div class="key-label">API Key</div>
-			<div id="apikey" class="api-key">...</div>
+<body class="bg-brand-bg text-brand-text font-sans antialiased min-h-screen flex flex-col">
+	<!-- Navbar -->
+	<nav class="border-b border-brand-border bg-brand-surface px-6 py-4 flex justify-between items-center">
+		<div class="flex items-center gap-2">
+			<i data-lucide="zap" class="w-6 h-6 text-brand-accent"></i>
+			<span class="font-bold text-lg tracking-tight">Auto-Pay</span>
 		</div>
-		
-		<button class="outline danger" onclick="revoke()">Revoke Key</button>
-		<div class="divider"></div>
-		
-		<p style="font-size: 13px; font-weight: 500; margin-bottom: 16px;">Recharge</p>
-		<div class="grid">
-			<button onclick="recharge('biweekly')">₹10 / 14d</button>
-			<button onclick="recharge('monthly')">₹20 / 30d</button>
+		<div class="flex items-center gap-4 text-sm text-brand-muted">
+			<a href="/dashboard" class="hover:text-white transition">Dashboard</a>
+			<a href="/privacy" class="hover:text-white transition">Privacy</a>
+			<a href="/terms" class="hover:text-white transition">Terms</a>
+			<a href="/api/logout" class="hover:text-red-400 transition">Logout</a>
+		</div>
+	</nav>
+
+	<main class="flex-grow container mx-auto px-6 py-12 max-w-4xl">
+		<!-- Header -->
+		<div class="mb-10 text-center md:text-left">
+			<h1 class="text-3xl font-bold mb-2">Welcome back</h1>
+			<p class="text-brand-muted">Manage your API key and subscription.</p>
 		</div>
 
-		<div id="qrArea">
-			<div class="qr-text">Pay exactly: <span id="payAmount" style="color:#fff; font-family:'JetBrains Mono'"></span></div>
-			<div class="qr-container" id="qrContainer"><img id="qrImg" /></div>
-			<p id="qrStatus" style="font-size: 12px; color: var(--text-muted); margin-top: 12px; display: none;">Awaiting payment...</p>
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+			<!-- Key Card -->
+			<div class="bg-brand-surface border border-brand-border rounded-xl p-6 relative">
+				<div class="flex justify-between items-start mb-4">
+					<div>
+						<h2 class="text-sm font-semibold text-brand-muted uppercase tracking-wider">API Key</h2>
+						<p id="email" class="text-sm text-brand-muted mt-1">Loading...</p>
+					</div>
+					<span id="statusBadge" class="px-2 py-1 rounded-md text-xs font-semibold bg-green-900/30 text-green-400 border border-green-800/50">ACTIVE</span>
+				</div>
+				<div class="bg-black border border-brand-border rounded-lg p-4 flex items-center justify-between mb-4">
+					<code id="apikey" class="font-mono text-lg text-white select-all">Loading...</code>
+					<button onclick="copyKey()" class="text-brand-muted hover:text-white transition"><i data-lucide="copy" class="w-5 h-5"></i></button>
+				</div>
+				<p class="text-xs text-brand-muted mb-4">Keep this key secret. Do not expose it in frontend code.</p>
+				<button onclick="revoke()" class="w-full bg-transparent border border-red-900/50 text-red-500 hover:bg-red-900/20 py-2 rounded-lg text-sm font-medium transition">Revoke & Generate New</button>
+			</div>
+
+			<!-- Subscription Card -->
+			<div class="bg-brand-surface border border-brand-border rounded-xl p-6 flex flex-col justify-between">
+				<div>
+					<h2 class="text-sm font-semibold text-brand-muted uppercase tracking-wider mb-4">Subscription Status</h2>
+					<div class="flex items-end gap-2 mb-2">
+						<span id="days" class="text-4xl font-bold text-white">0</span>
+						<span class="text-brand-muted mb-1">days left</span>
+					</div>
+					<p class="text-sm text-brand-muted">Recharge to extend your access.</p>
+				</div>
+				
+				<div class="grid grid-cols-2 gap-3 mt-6">
+					<button onclick="recharge('biweekly')" class="bg-brand-accent text-black hover:bg-gray-200 py-3 rounded-lg font-medium transition flex flex-col items-center justify-center">
+						<span>₹10</span><span class="text-xs opacity-70">14 Days</span>
+					</button>
+					<button onclick="recharge('monthly')" class="bg-brand-accent text-black hover:bg-gray-200 py-3 rounded-lg font-medium transition flex flex-col items-center justify-center">
+						<span>₹20</span><span class="text-xs opacity-70">30 Days</span>
+					</button>
+				</div>
+			</div>
 		</div>
 
-		<div class="footer">
-			<a href="/privacy">Privacy</a>
-			<a href="/terms">Terms</a>
-			<a href="/api/logout">Logout</a>
+		<!-- QR Area (Hidden by default) -->
+		<div id="qrArea" class="hidden mt-8 bg-brand-surface border border-brand-border rounded-xl p-6 text-center">
+			<h3 class="text-lg font-semibold mb-2">Scan to Pay</h3>
+			<p class="text-brand-muted mb-4">Pay exactly <strong id="payAmount" class="text-white font-mono"></strong> via any UPI app.</p>
+			<div class="bg-white p-4 rounded-xl inline-block mb-6">
+				<img id="qrImg" class="w-48 h-48" />
+			</div>
+			<div class="flex items-center justify-center gap-2 text-sm text-blue-400 mb-6 animate-pulse" id="qrStatus">
+				<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Awaiting payment confirmation...
+			</div>
+			<button onclick="cancelRecharge()" class="text-brand-muted hover:text-white transition text-sm underline">Cancel Recharge</button>
 		</div>
-	</div>
+
+		<!-- Documentation Section -->
+		<div class="mt-16">
+			<h2 class="text-2xl font-bold mb-6 border-b border-brand-border pb-2">API Documentation</h2>
+			<div class="space-y-6">
+				<div class="bg-brand-surface border border-brand-border rounded-xl p-6">
+					<h3 class="font-semibold mb-2">Verify Payment</h3>
+					<p class="text-sm text-brand-muted mb-4">Check if a FamApp payment matching the exact amount has been received.</p>
+					<div class="bg-black p-4 rounded-lg overflow-x-auto">
+						<code class="text-sm font-mono text-green-400">GET https://auto-payment.ximanta.xyz/api/verify?key=YOUR_KEY&amount=10.05</code>
+					</div>
+					<p class="text-sm text-brand-muted mt-4">Headers: Accepts <code class="bg-black px-1 rounded text-white">Authorization: Bearer YOUR_KEY</code> as well.</p>
+				</div>
+				<div class="bg-brand-surface border border-brand-border rounded-xl p-6">
+					<h3 class="font-semibold mb-2">Generate QR (Legacy)</h3>
+					<p class="text-sm text-brand-muted mb-4">Generate a QR for any amount. Includes 1-99 paise fingerprint.</p>
+					<div class="bg-black p-4 rounded-lg overflow-x-auto">
+						<code class="text-sm font-mono text-green-400">GET https://auto-payment.ximanta.xyz/qr?upi=...&amount=10&bot_name=...&remark=...</code>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
 
 	<script>
+		lucide.createIcons();
+
 		async function load() {
 			const res = await fetch('/api/me', { cache: 'no-store' });
 			if (res.status === 401) return window.location.href = '/api/login';
@@ -89,12 +131,29 @@
 			document.getElementById('email').innerText = data.email;
 			document.getElementById('apikey').innerText = data.api_key;
 			document.getElementById('days').innerText = data.days_left;
+			
+			const badge = document.getElementById('statusBadge');
+			if (data.days_left > 0) {
+				badge.className = "px-2 py-1 rounded-md text-xs font-semibold bg-green-900/30 text-green-400 border border-green-800/50";
+				badge.innerText = "ACTIVE";
+			} else {
+				badge.className = "px-2 py-1 rounded-md text-xs font-semibold bg-red-900/30 text-red-400 border border-red-800/50";
+				badge.innerText = "EXPIRED";
+			}
 		}
+
+		function copyKey() {
+			const key = document.getElementById('apikey').innerText;
+			navigator.clipboard.writeText(key);
+			alert('API Key copied!');
+		}
+
 		async function revoke() {
 			if(!confirm("Are you sure? Your old API key will stop working immediately.")) return;
 			await fetch('/api/revoke', {method: 'POST'});
 			load();
 		}
+
 		let pollInterval = null;
 		async function recharge(plan) {
 			if(pollInterval) clearInterval(pollInterval);
@@ -102,20 +161,25 @@
 			const data = await res.json();
 			document.getElementById('payAmount').innerText = '₹' + data.fingerprint;
 			document.getElementById('qrImg').src = 'data:image/png;base64,' + data.qr_base64;
-			document.getElementById('qrContainer').style.display = 'block';
-			document.getElementById('qrStatus').style.display = 'block';
+			document.getElementById('qrArea').classList.remove('hidden');
+			
 			pollInterval = setInterval(async () => {
 				const v = await fetch('/api/recharge/verify', { method: 'POST', body: JSON.stringify({fingerprint: data.fingerprint}) });
 				const vData = await v.json();
 				if (vData.status === 'exact') {
 					clearInterval(pollInterval);
-					alert('Payment Successful!');
-					document.getElementById('qrContainer').style.display = 'none';
-					document.getElementById('qrStatus').style.display = 'none';
+					alert('Payment Successful! Subscription Updated.');
+					document.getElementById('qrArea').classList.add('hidden');
 					load();
 				}
 			}, 3000);
 		}
+
+		function cancelRecharge() {
+			if(pollInterval) clearInterval(pollInterval);
+			document.getElementById('qrArea').classList.add('hidden');
+		}
+
 		load();
 	</script>
 </body>
