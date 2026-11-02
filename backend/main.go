@@ -88,7 +88,7 @@ const adminHTML = `
 			
 			users.forEach(u => {
 				const tr = document.createElement('tr');
-				tr.innerHTML = `
+				tr.innerHTML = ` + "`" + `
 					<td>${u.email}</td>
 					<td class="key">${u.api_key || 'NO KEY'}</td>
 					<td>${u.days_left}</td>
@@ -97,13 +97,13 @@ const adminHTML = `
 						<button class="btn-sm" onclick="updateExp('${u.email}', 30)">+30d</button>
 						<button class="btn-sm btn-danger" onclick="updateExp('${u.email}', -1)">-1d</button>
 					</td>
-				`;
+				` + "`" + `;
 				tbody.appendChild(tr);
 			});
 		}
 
 		async function updateExp(email, days) {
-			if(!confirm(`Update ${email} expiry by ${days} days?`)) return;
+			if(!confirm("Update " + email + " expiry by " + days + " days?")) return;
 			await fetch('/api/admin/expiry', {
 				method: 'POST',
 				body: JSON.stringify({email: email, days: days})
@@ -241,7 +241,7 @@ func main() {
 	http.HandleFunc("/api/revoke", HandleRevoke)
 	http.HandleFunc("/api/qr", HandleGenerateQR)
 	http.HandleFunc("/api/verify", HandleVerify)
-	http.HandleFunc("/qr", HandleQR) // The public QR generator
+	http.HandleFunc("/qr", HandleQR)
 	
 	// Admin API
 	http.HandleFunc("/api/admin/login", HandleAdminLogin)
