@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strings"
@@ -25,8 +27,32 @@ var oauthConfig = &oauth2.Config{
 	Endpoint: google.Endpoint,
 }
 
-func GetLoginURL(state string) string {
-	return oauthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.ApprovalForce)
+// P0 2.2: PKCE Implementation (Proof Key for Code Exchange)
+func GeneratePKCE() (string, string) {
+	// Generate a secure random verifier
+	verifier := generateSecureRandomString(64)
+	
+	// Create the SHA256 challenge
+	h := sha256.New()
+	h.Write([]byte(verifier))
+	challenge := base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+	
+	return verifier, challenge
+}
+
+func GetLoginURL(state string, challenge string) string {
+	// P0 2.1: State parameter, P0 2.2: PKCE challenge
+	return oauthConfig.AuthCodeURL(state, 
+		oauth2.AccessTypeOffline, 
+		oauth2.ApprovalForce,
+		oauth2.SetAuthURLParam("code_challenge", challenge),
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+	)
+}
+
+func ExchangeCode(ctx context.Context, code string, verifier string) (*oauth2.Token, error) {
+	// Pass the verifier during exchange
+	return oauthConfig.Exchange(ctx, code, oauth2.SetAuthURLParam("code_verifier", verifier))
 }
 
 func GetUserEmail(ctx context.Context, token *oauth2.Token) (string, error) {
