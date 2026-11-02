@@ -2,207 +2,264 @@
 
 # 💳 fampay-autopay
 
-**Automated UPI payment verification for FamApp — no gateway, no webhooks, no manual checking.**
+**Automated UPI payment verification for FamApp using a Go backend + Cloudflare email worker.**
 
-[![Made with Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org/)
-[![Hosted on Vercel](https://img.shields.io/badge/Hosted%20on-Vercel-000000?logo=vercel&logoColor=white)](https://vercel.com/)
-[![Cloudflare KV](https://img.shields.io/badge/Database-Cloudflare%20KV-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/kv/)
+[![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8?logo=go&logoColor=white)](https://go.dev/)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com/)
+[![Cloudflare KV](https://img.shields.io/badge/Storage-Cloudflare%20KV-F38020?logo=cloudflare&logoColor=white)](https://developers.cloudflare.com/kv/)
 [![OAuth 2.0](https://img.shields.io/badge/OAuth%202.0-Google-4285F4?logo=google&logoColor=white)](https://developers.google.com/identity/protocols/oauth2)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Read%20Integration%20Guide-3b82f6?style=for-the-badge&logo=readthedocs&logoColor=white)](./auto-payment-fixed-author-developer-ximanta.md)
+[![Live Demo Guide](https://img.shields.io/badge/Live%20Demo-Integration%20Guide-3b82f6?style=for-the-badge&logo=readthedocs&logoColor=white)](./auto-payment-fixed-author-developer-ximanta.md)
 [![Client Docs](https://img.shields.io/badge/Client%20Docs-Integration%20Rules-brightgreen?style=for-the-badge&logo=markdown&logoColor=white)](./auto-payment-fixed-author-developer-ximanta.md)
 
 </div>
 
 ---
 
-## 🎬 Live Demo & Client Integration Guide
-
-**→ [LIVE DEMO GUIDE](./auto-payment-fixed-author-developer-ximanta.md)**
-
-The file above is the complete client-facing guide. It covers:
-
-- Getting an API key via Google OAuth
-- Generating a payment QR with the fingerprint amount
-- Verifying payments against the API
-- Complete Python and JavaScript integration examples
-- **24 mandatory rules** every client must implement
-- Response shape reference for every status code
-
-If you're building on top of this API, **start there** before writing any code.
-
----
-
 ## Overview
 
-`fampay-autopay` is a pair of serverless HTTP APIs that let any bot, website, or backend
-accept UPI payments to a personal FamApp VPA and verify them automatically by reading
-FamApp payment notification emails from a Gmail inbox.
+`fampay-autopay` is the current production architecture for handling FamApp payment verification without a gateway, webhook, or manual reconciliation.
 
-**Two APIs. Two calls. That's the entire integration.**
+The system now consists of:
 
-- **QR Generator API** (Python / Flask) — generates a scannable UPI QR with a unique amount fingerprint.
-- **Verification API** (Node.js / Express-style serverless) — matches FamApp emails by that fingerprint.
+- `backend/` — a Go web app for OAuth sign-in, dashboard, QR generation, verification, admin tools, and user management
+- `cloudflare-worker/` — a Cloudflare Worker that listens to incoming Gmail/FamApp emails, validates SPF/DKIM/DMARC, extracts the payment amount + UTR, and saves signed payment records to KV
+- `Cloudflare KV` — storage for payment data, API keys, sessions, and user metadata
+
+This is the latest architecture and replaces the older split `verify-api` + `qr-api` layout.
 
 ---
 
 ## How it works
 
 ```
-┌─────────────┐   1. Get QR    ┌──────────────┐
-│  Your Bot   │───────────────▶│  QR API      │
-│             │◀── PNG + amt ──│              │
-└──────┬──────┘                └──────────────┘
-       │
-       │  2. User scans & pays via any UPI app
-       ▼
-┌─────────────┐   3. Verify    ┌──────────────┐
-│  Your Bot   │───────────────▶│  Verify API  │
-│             │◀── {verified}──│  (reads      │
-└─────────────┘                │   Gmail)     │
-                               └──────────────┘
+┌────────────────────┐
+│ User / Bot / App  │
+└─────────┬──────────┘
+          │
+          │ 1. Login / API key / QR flow
+          ▼
+┌────────────────────┐      2. Generate QR + fingerprint      ┌────────────────────┐
+│ backend/           │ ───────────────────────────────────────▶ │ Go HTTP backend    │
+│ (Go server)        │ ◀───────────────────────────────────────   │ /api/qr            │
+└─────────┬──────────┘                                         └─────────┬──────────┘
+          │                                                          │
+          │ 3. User pays via UPI                                     │
+          ▼                                                          ▼
+┌────────────────────┐      4. Gmail email arrives            ┌────────────────────┐
+│ FamApp email       │ ───────────────────────────────────────▶ │ Cloudflare Worker   │
+│ notification        │                                         │ validates SPF/DKIM/ │
+└────────────────────┘                                         │ DMARC + parses      │
+                                                              │ amount/UTR + signs  │
+                                                              │ payload + stores in │
+                                                              │ KV                 │
+                                                              └─────────┬──────────┘
+                                                                        │
+                                                                        │ 5. Verify with HMAC + KV
+                                                                        ▼
+                                                              ┌────────────────────┐
+                                                              │ backend /api/verify│
+                                                              │ checks conditions  │
+                                                              │ and marks payment  │
+                                                              └────────────────────┘
 ```
 
-FamApp removed the "Purpose:" field from their notification emails. This project
-solves that by adding a random 1–10 paise to the requested amount and encoding the
-total in the QR. The decimal amount becomes the transaction fingerprint.
+The key idea is simple:
+
+- The app creates a QR with a tiny randomized paise offset so the exact amount becomes a unique fingerprint.
+- The worker listens for FamApp success emails and stores a signed record keyed by the amount/fingerprint.
+- The backend validates the stored payment, prevents replay, checks API-key validity, and updates expiry or recharge state.
+
+---
+
+## Current architecture
+
+### Backend (`backend/`)
+
+The Go backend handles the product experience and API layer:
+
+- OAuth login with Google
+- browser dashboard and admin UI
+- QR generation endpoints
+- payment verification
+- recharge verification
+- history and revoke flows
+- API-key and expiry management
+- release metadata endpoints
+- health endpoint
+
+Key routes:
+
+- `GET /` — landing page
+- `GET /dashboard` — authenticated dashboard
+- `GET /admin` — admin console
+- `GET /docs` — docs page
+- `GET /health` — health check
+- `GET /api/latest-release` — release metadata
+- `GET /api/login` — OAuth login
+- `GET /api/auth/callback` — Google callback
+- `GET /api/me` — current authenticated user
+- `GET /api/history` — payment history
+- `GET /api/revoke` — revoke and rotate API key
+- `GET /api/qr` / `POST /api/qr` style generation flow — generate QR payload
+- `GET /api/verify` — verify payment by API key + amount
+- `GET /api/recharge/verify` — recharge verification
+- `POST /api/admin/*` — admin endpoints
+
+### Worker (`cloudflare-worker/`)
+
+The worker processes inbound mail and extracts only valid FamApp payment notifications:
+
+- checks `Authentication-Results` for `spf=pass`, `dkim=pass`, and `dmarc=pass`
+- ignores Google forwarding emails
+- matches successful payment text like `Received ₹X.XX`
+- extracts `UTR` and `amount`
+- creates an HMAC signature using `KV_HMAC_SECRET`
+- stores the record in Cloudflare KV for backend verification
+
+This makes the payment data ingestion reliable and tamper-resistant.
 
 ---
 
 ## Features
 
-- Google OAuth 2.0 sign-in (read-only Gmail scope)
-- API key generation per Gmail account (idempotent)
-- Amount-fingerprint verification (no reliance on the `Purpose:` field)
-- FamApp sender-domain validation
-- Replay protection (consume markers)
-- Rate limiting (30 req/min per API key)
-- Admin console with revoke + blacklist
-- Serverless — free to host on Vercel + Cloudflare KV
+- Google OAuth 2.0 sign-in
+- per-user API key generation and rotation
+- QR generation with fingerprinted amount
+- FamApp sender validation and email verification
+- replay protection and consumed-key checks
+- precise verification using HMAC-backed payload integrity
+- session and user tracking in Cloudflare KV
+- admin dashboard for user and expiry management
+- Go-based backend with embedded UI templates
+- Cloudflare Worker-based email ingestion
 
 ---
 
 ## Quick start
 
-### 1. Get your API key
-
-Visit the deployed landing page, click **Sign In with Google**, grant read-only
-Gmail access, copy the 20-character API key.
-
-### 2. Generate a payment QR
+### 1. Install backend dependencies
 
 ```bash
-curl -D headers.txt \
-  "https://your-qr-api.vercel.app/qr?upi=yourname@fam&amount=10&bot_name=MyBot&remark=ABC123" \
-  -o qr.png
-
-# Read the fingerprint from the headers
-grep -i x-final-amount headers.txt
-# → X-Final-Amount: 10.05
+cd backend
+go mod download
 ```
 
-### 3. Verify the payment
+### 2. Run the backend locally
 
 ```bash
-curl "https://your-verify-api.vercel.app/api/verify?key=YOUR_KEY&amount=10.05"
+cd backend
+PORT=8080 go run .
 ```
 
-```json
-{
-  "verified": true,
-  "received": 10.05,
-  "status": "exact"
-}
+The backend serves the landing page, dashboard, admin pages, health checks, and API routes.
+
+### 3. Deploy the Cloudflare Worker
+
+```bash
+cd cloudflare-worker
+npm install
+wrangler deploy
 ```
 
-> Full walkthrough and 24 mandatory rules for clients: **[LIVE DEMO GUIDE](./auto-payment-fixed-author-developer-ximanta.md)**
+Make sure the worker is configured with the required KV bindings and secret:
+
+```toml
+[[kv_namespaces]]
+binding = "PAYMENT_KV"
+id = "..."
+```
+
+And the env secret:
+
+```bash
+wrangler secret put KV_HMAC_SECRET
+```
 
 ---
 
-## Deployment
+## Required configuration
 
-### Prerequisites
+### Backend environment variables
 
-- Vercel account
-- Cloudflare account (for KV storage)
-- Google Cloud project (for OAuth credentials)
-
-### Setup Google OAuth
-
-1. [Google Cloud Console](https://console.cloud.google.com/) → new project
-2. Enable **Gmail API**
-3. OAuth consent screen → External → add test users
-4. Create OAuth Client ID → **Web application**
-5. Add redirect URI: `https://your-verify-api.vercel.app/api/auth/callback`
-6. Copy Client ID + Secret
-
-### Setup Cloudflare KV
-
-1. Cloudflare dashboard → Workers & Pages → KV
-2. Create namespace → copy its ID
-3. Create API token with **Workers KV Storage: Edit** permission
-4. Copy Account ID + Namespace ID + API Token
-
-### Deploy QR API
+Typical values used by the Go app:
 
 ```bash
-cd qr-api
-vercel --prod
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_KV_NAMESPACE=
+CLOUDFLARE_API_TOKEN=
+BASE_URL=
+ADMIN_PASSWORD=
+SUPPORT_LINK=
+PORT=8080
 ```
 
-### Deploy Verify API
+### Worker environment variables
 
 ```bash
-cd verify-api
-vercel --prod
-```
-
-### Configure environment variables on Vercel
-
-Set these on the **verify-api** project:
-
-```
-GOOGLE_CLIENT_ID
-GOOGLE_CLIENT_SECRET
-GOOGLE_REDIRECT_URI
-CLOUDFLARE_ACCOUNT_ID
-CLOUDFLARE_KV_NAMESPACE
-CLOUDFLARE_API_TOKEN
-BASE_URL
-ADMIN_PASSWORD
-SUPPORT_LINK
+KV_HMAC_SECRET=your-long-random-secret
+PAYMENT_KV=your-kv-binding
 ```
 
 ---
 
 ## Project structure
 
-```
+```text
 fampay-autopay/
-├── README.md                                   ← you are here
-├── auto-payment-fixed-author-developer-ximanta.md   ← 📘 LIVE DEMO / CLIENT GUIDE
-├── verify-api/          ← Node.js verification service
-│   ├── api/             ← serverless endpoints
-│   ├── lib/             ← config, KV client, Gmail logic
-│   ├── public/          ← landing page + admin console
+├── README.md
+├── LICENSE
+├── auto-payment-fixed-author-developer-ximanta.md
+├── backend/
+│   ├── main.go
+│   ├── handlers.go
+│   ├── kv.go
+│   ├── email.go
+│   ├── gmail.go
+│   ├── qr.go
+│   ├── release.go
+│   ├── worker.go
+│   ├── admin.go
+│   ├── go.mod
+│   └── templates/
+│       ├── index.html
+│       ├── dashboard.html
+│       ├── admin.html
+│       ├── docs.html
+│       ├── privacy.html
+│       ├── terms.html
+│       └── ai_prompt.md
+├── cloudflare-worker/
+│   ├── worker.js
 │   ├── package.json
-│   └── vercel.json
-└── qr-api/              ← Python QR generator service
-    ├── api/index.py
-    ├── requirements.txt
-    └── vercel.json
+│   └── wrangler.toml
+├── verify-api/        # legacy
+├── qr-api/            # legacy
+└── Vercel-API/        # legacy folder retained for historical reference only
 ```
+
+> The repo still contains older legacy folders for reference, but the current active implementation is the `backend/` + `cloudflare-worker/` architecture.
 
 ---
 
-## Documentation
+## Client integration guide
 
-| Document | Purpose |
-|---|---|
-| **[LIVE DEMO GUIDE](./auto-payment-fixed-author-developer-ximanta.md)** | 📘 Complete client integration guide + 24 rules |
-| [README.md](./README.md) | This file — project overview + deployment |
+For the integration and payment rules, see the client-facing guide:
+
+- [LIVE DEMO GUIDE](./auto-payment-fixed-author-developer-ximanta.md)
+
+This guide covers:
+
+- OAuth/API key setup
+- QR generation flow
+- verification rules
+- response shape
+- required client-side behaviour
+- payment edge cases and rules
 
 ---
 
