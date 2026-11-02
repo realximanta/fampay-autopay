@@ -19,7 +19,6 @@ type AdminUser struct {
 	DaysLeft  int    `json:"days_left"`
 }
 
-// ListAllUsers fetches every user and their API key from Cloudflare KV
 func ListAllUsers() ([]AdminUser, error) {
 	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/keys?prefix=user:", cfAccountID, cfNamespaceID)
 	req, _ := http.NewRequest("GET", url, nil)
@@ -62,7 +61,6 @@ func ListAllUsers() ([]AdminUser, error) {
 	return users, nil
 }
 
-// P0 7.4: Log every admin action to KV (90 days retention)
 func LogAdminAction(ip string, action string, details string) {
 	logEntry := map[string]string{
 		"ts":      time.Now().Format(time.RFC3339),
@@ -73,7 +71,6 @@ func LogAdminAction(ip string, action string, details string) {
 	KVPut("audit:"+time.Now().Format("20060102150405")+":"+action, logEntry, 7776000)
 }
 
-// HandleAdminLogin verifies password using bcrypt (P0 2.10)
 func HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -103,7 +100,7 @@ func HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sessionToken := generateSecureRandomString(32)
-	KVPut("admin_session:"+sessionToken, "true", 28800) // 8 hours
+	KVPut("admin_session:"+sessionToken, "valid", 28800) 
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "admin_session",
@@ -111,7 +108,7 @@ func HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteStrictMode, // P0 2.9
+		SameSite: http.SameSiteStrictMode,
 		MaxAge:   28800,
 	})
 
@@ -156,19 +153,27 @@ func HandleAdminUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store") // Prevent browser caching
 	json.NewEncoder(w).Encode(users)
 }
 
 func HandleAdminUpdateExpiry(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("admin_session")
-	if err != nil || KVGet("admin_session:"+cookie.Value, nil) != nil {
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	// FIXED BUG: Passing a string pointer instead of nil
+	var val string
+	if err := KVGet("admin_session:"+cookie.Value, &val); err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
 	var req struct {
 		Email string `json:"email"`
-		Days  int    `json:"days"` // Can be positive or negative
+		Days  int    `json:"days"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -187,7 +192,6 @@ func HandleAdminUpdateExpiry(w http.ResponseWriter, r *http.Request) {
 	userKey.ExpiresAt += int64(req.Days * 86400)
 	KVPut("user:"+req.Email, userKey, 0)
 
-	// Sync the expiry to their API key record
 	var keyStr string
 	if err := KVGet("email_key:"+req.Email, &keyStr); err == nil {
 		KVPut("key:"+keyStr, userKey, 0)
