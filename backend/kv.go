@@ -22,7 +22,6 @@ var cfNamespaceID = os.Getenv("CF_NAMESPACE_ID")
 var cfAPIToken = os.Getenv("CF_API_TOKEN")
 var kvBaseURL = fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/values", cfAccountID, cfNamespaceID)
 
-// P0 1.8: AES-256-GCM Encryption for Refresh Tokens
 func getEncryptionKey() []byte {
 	secret := os.Getenv("TOKEN_ENCRYPTION_KEY")
 	if secret == "" {
@@ -82,7 +81,6 @@ func DecryptToken(encoded string) (string, error) {
 	return string(plaintext), nil
 }
 
-// P0 1.2: Verify HMAC Signature from Cloudflare Worker
 func VerifyKVSignature(payload string, signature string) bool {
 	secret := os.Getenv("KV_HMAC_SECRET")
 	if secret == "" {
@@ -94,11 +92,10 @@ func VerifyKVSignature(payload string, signature string) bool {
 	return hmac.Equal([]byte(expected), []byte(signature))
 }
 
-// Structs mapping to KV storage
 type KeyData struct {
-	Email           string `json:"email"`
-	ExpiresAt       int64  `json:"expires_at"`
-	EncryptedToken  string `json:"encrypted_token"` // P0 1.8
+	Email          string `json:"email"`
+	ExpiresAt      int64  `json:"expires_at"`
+	EncryptedToken string `json:"encrypted_token"`
 }
 
 type PendingData struct {
@@ -111,10 +108,9 @@ type PaymentPayload struct {
 	Amount    string `json:"amount"`
 	Timestamp int64  `json:"timestamp"`
 	UTR       string `json:"utr"`
-	Signature string `json:"signature"` // P0 1.2
+	Signature string `json:"signature"`
 }
 
-// KV HTTP Client
 func KVGet(key string, v interface{}) error {
 	req, _ := http.NewRequest("GET", kvBaseURL+"/"+key, nil)
 	req.Header.Set("Authorization", "Bearer "+cfAPIToken)
@@ -148,7 +144,6 @@ func KVDelete(key string) {
 	http.DefaultClient.Do(req)
 }
 
-// P0 1.7 & 4.5: UTR Tracking (Permanent)
 func IsUTRUsed(utr string) bool {
 	var data PaymentPayload
 	if err := KVGet("utr:"+utr, &data); err == nil {
@@ -159,8 +154,8 @@ func IsUTRUsed(utr string) bool {
 
 func MarkUTRUsed(utr string, amount string, email string) {
 	payload := map[string]interface{}{
-		"amount": amount,
-		"email":  email,
+		"amount":  amount,
+		"email":   email,
 		"used_at": fmt.Sprintf("%d", time.Now().Unix()),
 	}
 	KVPut("utr:"+utr, payload, 0)
