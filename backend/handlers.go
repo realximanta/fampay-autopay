@@ -103,14 +103,12 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) {
 
 	var userKey KeyData
 	if err := KVGet("user:"+email, &userKey); err != nil {
-		// NEW USER SIGN UP
 		newKey := generateSecureRandomString(20)
 		userKey = KeyData{Email: email, ExpiresAt: time.Now().Unix()}
 		KVPut("user:"+email, userKey, 0)
 		KVPut("key:"+newKey, userKey, 0)
 		KVPut("email_key:"+email, newKey, 0)
 		
-		// Send Welcome Email (Triggered in background)
 		go SendWelcomeEmail(email)
 		
 	} else {
@@ -210,11 +208,16 @@ func HandleGenerateQR(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 
+	// Default to Go Plan
 	amount := 10
-	days := 14
-	if req.PlanID == "monthly" {
-		amount = 20
-		days = 30
+	days := 7
+	
+	if req.PlanID == "plus" {
+		amount = 25
+		days = 21
+	} else if req.PlanID == "pro" {
+		amount = 45
+		days = 41
 	}
 
 	n, _ := rand.Int(rand.Reader, big.NewInt(99))
@@ -299,7 +302,7 @@ func HandleRechargeVerify(w http.ResponseWriter, r *http.Request) {
 	// Log to History
 	LogHistory(email, "Subscription Recharged", req.Fingerprint, "exact")
 	
-	// Send Thank You Email (Triggered in background)
+	// Send Thank You Email
 	go SendThankYouEmail(pending.Email, float64(pending.Amount), pending.Days)
 
 	w.WriteHeader(http.StatusOK)
@@ -372,7 +375,6 @@ func HandleVerify(w http.ResponseWriter, r *http.Request) {
 	MarkUTRUsed(payment.UTR, amountStr, userKey.Email)
 	KVDelete("payment:" + amountStr)
 
-	// Log to History
 	LogHistory(userKey.Email, "API Verify", amountStr, "exact")
 
 	w.WriteHeader(http.StatusOK)
