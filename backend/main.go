@@ -64,6 +64,7 @@ func main() {
 	http.HandleFunc("/api/logout", HandleLogout)
 	http.HandleFunc("/api/auth/callback", HandleCallback)
 	http.HandleFunc("/api/me", HandleGetMe)
+	http.HandleFunc("/api/history", HandleGetHistory) // NEW ROUTE
 	http.HandleFunc("/api/revoke", HandleRevoke)
 	http.HandleFunc("/api/qr", HandleGenerateQR)
 	http.HandleFunc("/api/verify", HandleVerify)
@@ -99,7 +100,6 @@ func main() {
 		termsTmpl.Execute(w, nil)
 	})
 
-	// Download AI Prompt
 	http.HandleFunc("/api/download-prompt", func(w http.ResponseWriter, r *http.Request) {
 		data, err := templateFS.ReadFile("templates/ai_prompt.md")
 		if err != nil {
