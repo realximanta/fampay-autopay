@@ -16,6 +16,9 @@ var (
 	indexTmpl     *template.Template
 	dashboardTmpl *template.Template
 	adminTmpl     *template.Template
+	docsTmpl      *template.Template
+	privacyTmpl   *template.Template
+	termsTmpl     *template.Template
 )
 
 func main() {
@@ -31,6 +34,18 @@ func main() {
 	adminTmpl, err = template.ParseFS(templateFS, "templates/admin.html")
 	if err != nil {
 		log.Fatal("Failed to parse admin template: ", err)
+	}
+	docsTmpl, err = template.ParseFS(templateFS, "templates/docs.html")
+	if err != nil {
+		log.Fatal("Failed to parse docs template: ", err)
+	}
+	privacyTmpl, err = template.ParseFS(templateFS, "templates/privacy.html")
+	if err != nil {
+		log.Fatal("Failed to parse privacy template: ", err)
+	}
+	termsTmpl, err = template.ParseFS(templateFS, "templates/terms.html")
+	if err != nil {
+		log.Fatal("Failed to parse terms template: ", err)
 	}
 
 	// Landing Page & Release API
@@ -71,20 +86,34 @@ func main() {
 		w.Header().Set("Cache-Control", "no-store")
 		adminTmpl.Execute(w, nil)
 	})
+	http.HandleFunc("/docs", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		docsTmpl.Execute(w, nil)
+	})
+	http.HandleFunc("/privacy", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		privacyTmpl.Execute(w, nil)
+	})
+	http.HandleFunc("/terms", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		termsTmpl.Execute(w, nil)
+	})
+
+	// Download AI Prompt
+	http.HandleFunc("/api/download-prompt", func(w http.ResponseWriter, r *http.Request) {
+		data, err := templateFS.ReadFile("templates/ai_prompt.md")
+		if err != nil {
+			http.Error(w, "File not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Disposition", "attachment; filename=\"auto-pay-prompt.md\"")
+		w.Header().Set("Content-Type", "text/markdown")
+		w.Write(data)
+	})
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
-	})
-
-	// Will be updated to serve privacy.html and terms.html in the next step
-	http.HandleFunc("/privacy", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte("<h1>Privacy Policy</h1><p>We only read Gmail to verify FamApp payments. We do not store personal emails.</p>"))
-	})
-	http.HandleFunc("/terms", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte("<h1>Terms of Service</h1><p>API keys are non-refundable. Do not abuse the service.</p>"))
 	})
 
 	port := os.Getenv("PORT")
