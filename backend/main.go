@@ -36,6 +36,7 @@ func main() {
 	http.HandleFunc("/api/revoke", HandleRevoke)
 	http.HandleFunc("/api/qr", HandleGenerateQR)
 	http.HandleFunc("/api/verify", HandleVerify)
+	http.HandleFunc("/api/recharge/verify", HandleRechargeVerify) // <--- THE FIX
 	http.HandleFunc("/qr", HandleQR)
 	
 	// Admin API
@@ -44,7 +45,7 @@ func main() {
 	http.HandleFunc("/api/admin/users", HandleAdminUsers)
 	http.HandleFunc("/api/admin/expiry", HandleAdminUpdateExpiry)
 	
-	// HTML Pages (using embedded templates)
+	// HTML Pages
 	http.HandleFunc("/dashboard", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		dashboardTmpl.Execute(w, nil)
@@ -54,13 +55,11 @@ func main() {
 		adminTmpl.Execute(w, nil)
 	})
 
-	// Health check for UptimeRobot
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
 
-	// Legal pages
 	http.HandleFunc("/privacy", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte("<h1>Privacy Policy</h1><p>We only read Gmail to verify FamApp payments. We do not store personal emails.</p>"))
@@ -70,7 +69,6 @@ func main() {
 		w.Write([]byte("<h1>Terms of Service</h1><p>API keys are non-refundable. Do not abuse the service.</p>"))
 	})
 
-	// Redirect root to dashboard
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
