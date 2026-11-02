@@ -103,11 +103,16 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) {
 
 	var userKey KeyData
 	if err := KVGet("user:"+email, &userKey); err != nil {
+		// NEW USER SIGN UP
 		newKey := generateSecureRandomString(20)
 		userKey = KeyData{Email: email, ExpiresAt: time.Now().Unix()}
 		KVPut("user:"+email, userKey, 0)
 		KVPut("key:"+newKey, userKey, 0)
 		KVPut("email_key:"+email, newKey, 0)
+		
+		// Send Welcome Email (Triggered in background)
+		go SendWelcomeEmail(email)
+		
 	} else {
 		userKey.EncryptedToken = encToken
 		KVPut("user:"+email, userKey, 0)
@@ -160,7 +165,6 @@ func HandleGetMe(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// NEW: Get History Endpoint
 func HandleGetHistory(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("session")
 	if err != nil {
@@ -294,6 +298,9 @@ func HandleRechargeVerify(w http.ResponseWriter, r *http.Request) {
 
 	// Log to History
 	LogHistory(email, "Subscription Recharged", req.Fingerprint, "exact")
+	
+	// Send Thank You Email (Triggered in background)
+	go SendThankYouEmail(pending.Email, float64(pending.Amount), pending.Days)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{"status": "exact", "verified": true})
