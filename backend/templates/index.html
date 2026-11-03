@@ -20,20 +20,44 @@
 </head>
 <body class="bg-brand-bg text-brand-text font-sans antialiased min-h-screen flex flex-col">
     <!-- Navbar -->
-    <nav class="border-b border-brand-border bg-brand-surface px-6 py-4 flex justify-between items-center">
+    <nav class="border-b border-brand-border bg-brand-surface px-6 py-4 flex justify-between items-center sticky top-0 z-40">
         <div class="flex items-center gap-2">
-            <i data-lucide="zap" class="w-6 h-6 text-brand-accent"></i>
-            <span class="font-bold text-lg tracking-tight">Auto-Pay</span>
+            <a href="/" class="flex items-center gap-2 hover:opacity-80 transition">
+                <i data-lucide="zap" class="w-6 h-6 text-brand-accent"></i>
+                <span class="font-bold text-lg tracking-tight">Auto-Pay</span>
+            </a>
         </div>
-        <div class="flex items-center gap-6 text-sm text-brand-muted">
-            <a href="/docs" class="hover:text-white transition">Documentation</a>
-            <a href="/api/login" class="bg-brand-accent text-black px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition">Sign In</a>
+        <div class="flex items-center gap-4">
+            <a href="/api/login" class="hidden sm:block bg-brand-accent text-black px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition">Sign In</a>
+            <button onclick="toggleMenu()" class="text-brand-muted hover:text-white transition">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
         </div>
     </nav>
 
+    <!-- Side Menu -->
+    <div id="menuOverlay" class="fixed inset-0 bg-black/50 z-40 hidden" onclick="toggleMenu()"></div>
+    <div id="sideMenu" class="fixed top-0 right-0 h-full w-64 bg-brand-surface border-l border-brand-border z-50 transform translate-x-full transition-transform duration-300">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-8">
+                <span class="font-bold text-lg text-white">Menu</span>
+                <button onclick="toggleMenu()" class="text-brand-muted hover:text-white">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <nav class="space-y-4 text-sm">
+                <a href="/dashboard" class="block text-brand-muted hover:text-white transition">Dashboard</a>
+                <a href="/docs" class="block text-brand-muted hover:text-white transition">Documentation</a>
+                <a href="/privacy" class="block text-brand-muted hover:text-white transition">Privacy Policy</a>
+                <a href="/terms" class="block text-brand-muted hover:text-white transition">Terms of Service</a>
+                <hr class="border-brand-border my-4">
+                <a href="/api/login" class="block text-green-400 hover:text-green-300 transition">Sign In</a>
+            </nav>
+        </div>
+    </div>
+
     <!-- Main Content -->
     <main class="flex-grow flex flex-col items-center justify-center text-center px-6 relative overflow-hidden">
-        <!-- Background Gradient -->
         <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-blue-500/10 rounded-full blur-3xl -z-10 pointer-events-none"></div>
 
         <div class="max-w-3xl mx-auto py-20">
@@ -50,12 +74,11 @@
                 Accept UPI payments via FamApp and verify them instantly. No webhooks, no gateways, no manual checking. Just pure automation.
             </p>
 
-            <!-- Action Buttons -->
             <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <!-- APK Download Button -->
-                <a id="downloadAppBtn" href="#" class="w-full sm:w-auto bg-green-500 text-black px-8 py-3 rounded-lg font-semibold hover:bg-green-400 transition flex items-center justify-center gap-2">
+                <!-- APK Download Button (Updated by GitHub Action) -->
+                <a id="downloadAppBtn" href="https://github.com/realximanta/fampay-autopay/releases/latest" class="w-full sm:w-auto bg-green-500 text-black px-8 py-3 rounded-lg font-semibold hover:bg-green-400 transition flex items-center justify-center gap-2">
                     <i data-lucide="download" class="w-5 h-5"></i> 
-                    <span id="downloadBtnText">Download App</span>
+                    <span id="downloadBtnText">Download APK (v1.0.0)</span>
                 </a>
 
                 <a href="/api/login" class="w-full sm:w-auto bg-brand-accent text-black px-8 py-3 rounded-lg font-semibold hover:bg-gray-200 transition flex items-center justify-center gap-2">
@@ -67,7 +90,6 @@
                 </a>
             </div>
 
-            <!-- Feature Grid -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-24 text-left">
                 <div class="bg-brand-surface border border-brand-border p-6 rounded-xl">
                     <i data-lucide="zap" class="w-8 h-8 text-yellow-400 mb-4"></i>
@@ -88,38 +110,23 @@
         </div>
     </main>
 
-    <!-- Footer -->
     <footer class="border-t border-brand-border py-8 text-center text-sm text-brand-muted">
         <p>&copy; 2026 Auto-Pay by Himanta Bhuyan. <a href="/privacy" class="hover:text-white">Privacy</a> &middot; <a href="/terms" class="hover:text-white">Terms</a></p>
     </footer>
 
     <script>
         lucide.createIcons();
-
-        // Fetch the latest release version from the backend
-        async function fetchLatestRelease() {
-            try {
-                const res = await fetch('/api/latest-release');
-                if (!res.ok) throw new Error('Failed to fetch release');
-                
-                const data = await res.json();
-                
-                const btn = document.getElementById('downloadAppBtn');
-                const txt = document.getElementById('downloadBtnText');
-                
-                if (data.version && data.download_url) {
-                    txt.innerText = `Download APK (${data.version})`;
-                    btn.href = data.download_url;
-                }
-            } catch (err) {
-                console.error('Could not load release info:', err);
-                // Fallback: Keep the button as "Download App" linking to GitHub releases page
-                const btn = document.getElementById('downloadAppBtn');
-                btn.href = 'https://github.com/realximanta/fampay-autopay/releases/latest';
+        function toggleMenu() {
+            const menu = document.getElementById('sideMenu');
+            const overlay = document.getElementById('menuOverlay');
+            if (menu.classList.contains('translate-x-full')) {
+                menu.classList.remove('translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                menu.classList.add('translate-x-full');
+                overlay.classList.add('hidden');
             }
         }
-
-        fetchLatestRelease();
     </script>
 </body>
 </html>
