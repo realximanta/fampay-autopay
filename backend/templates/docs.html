@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <title>Documentation | Auto-Pay</title>
@@ -18,195 +18,231 @@
         }
     </script>
     <style>
-        /* Custom scrollbar for dark theme */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #000; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #555; }
     </style>
 </head>
-<body class="bg-brand-bg text-brand-text font-sans antialiased min-h-screen flex flex-col">
-    <!-- Navbar -->
-    <nav class="border-b border-brand-border bg-brand-surface px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+<body class="bg-brand-bg text-brand-text font-sans antialiased h-screen overflow-hidden flex flex-col">
+    <!-- Top Navbar -->
+    <nav class="border-b border-brand-border bg-brand-surface px-6 py-4 flex justify-between items-center z-50 shrink-0">
         <div class="flex items-center gap-2">
             <a href="/" class="flex items-center gap-2 hover:opacity-80 transition">
                 <i data-lucide="zap" class="w-6 h-6 text-brand-accent"></i>
                 <span class="font-bold text-lg tracking-tight">Auto-Pay</span>
             </a>
         </div>
-        <div class="flex items-center gap-4 text-sm">
-            <a href="/api/login" class="text-brand-muted hover:text-white transition">Dashboard</a>
-            <!-- Download Prompt Button -->
-            <a href="/api/download-prompt" class="bg-brand-accent text-black px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition flex items-center gap-2">
+        <div class="flex items-center gap-4">
+            <a href="/api/download-prompt" class="hidden sm:flex bg-brand-accent text-black px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition items-center gap-2 text-sm">
                 <i data-lucide="download" class="w-4 h-4"></i> Download AI Prompt
             </a>
+            <button onclick="toggleMenu()" class="text-brand-muted hover:text-white transition md:hidden">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
         </div>
     </nav>
 
-    <div class="flex-grow flex max-w-7xl mx-auto w-full">
-        <!-- Sidebar Navigation -->
-        <aside class="w-64 hidden md:block border-r border-brand-border p-6 sticky top-[69px] h-[calc(100vh-69px)] overflow-y-auto">
-            <h3 class="text-xs font-semibold text-brand-muted uppercase tracking-wider mb-4">Getting Started</h3>
-            <ul class="space-y-3 text-sm">
-                <li><a href="#introduction" class="text-brand-muted hover:text-white transition">Introduction</a></li>
-                <li><a href="#authentication" class="text-brand-muted hover:text-white transition">Authentication</a></li>
-            </ul>
-            <h3 class="text-xs font-semibold text-brand-muted uppercase tracking-wider mb-4 mt-8">API Reference</h3>
-            <ul class="space-y-3 text-sm">
-                <li><a href="#generate-qr" class="text-brand-muted hover:text-white transition">Generate QR</a></li>
-                <li><a href="#verify-payment" class="text-brand-muted hover:text-white transition">Verify Payment</a></li>
-            </ul>
-            <h3 class="text-xs font-semibold text-brand-muted uppercase tracking-wider mb-4 mt-8">Examples</h3>
-            <ul class="space-y-3 text-sm">
-                <li><a href="#python" class="text-brand-muted hover:text-white transition">Python</a></li>
-                <li><a href="#javascript" class="text-brand-muted hover:text-white transition">Node.js / JS</a></li>
-            </ul>
+    <!-- Mobile Side Menu (Hamburger) -->
+    <div id="menuOverlay" class="fixed inset-0 bg-black/50 z-[60] hidden md:hidden" onclick="toggleMenu()"></div>
+    <div id="sideMenu" class="fixed top-0 right-0 h-full w-72 bg-brand-surface border-l border-brand-border z-[70] transform translate-x-full transition-transform duration-300 md:hidden overflow-y-auto">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-8">
+                <span class="font-bold text-lg text-white">Menu</span>
+                <button onclick="toggleMenu()" class="text-brand-muted hover:text-white">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-6">
+                <!-- Docs Navigation in Hamburger -->
+                <div>
+                    <h3 class="text-xs font-semibold text-brand-muted uppercase tracking-wider mb-3">Documentation</h3>
+                    <nav class="space-y-3 text-sm">
+                        <a href="#introduction" onclick="toggleMenu()" class="block text-brand-muted hover:text-white transition">Introduction</a>
+                        <a href="#authentication" onclick="toggleMenu()" class="block text-brand-muted hover:text-white transition">Authentication</a>
+                        <a href="#generate-qr" onclick="toggleMenu()" class="block text-brand-muted hover:text-white transition">Generate QR</a>
+                        <a href="#verify-payment" onclick="toggleMenu()" class="block text-brand-muted hover:text-white transition">Verify Payment</a>
+                        <a href="#python" onclick="toggleMenu()" class="block text-brand-muted hover:text-white transition">Python Example</a>
+                        <a href="#javascript" onclick="toggleMenu()" class="block text-brand-muted hover:text-white transition">JavaScript Example</a>
+                    </nav>
+                </div>
+                
+                <hr class="border-brand-border">
+                
+                <!-- Global Navigation -->
+                <div>
+                    <h3 class="text-xs font-semibold text-brand-muted uppercase tracking-wider mb-3">Account</h3>
+                    <nav class="space-y-3 text-sm">
+                        <a href="/dashboard" class="block text-brand-muted hover:text-white transition">Dashboard</a>
+                        <a href="/privacy" class="block text-brand-muted hover:text-white transition">Privacy Policy</a>
+                        <a href="/terms" class="block text-brand-muted hover:text-white transition">Terms of Service</a>
+                        <a href="/api/login" class="block text-green-400 hover:text-green-300 transition">Sign In</a>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- Desktop Sidebar -->
+        <aside class="w-64 border-r border-brand-border bg-[#050505] hidden md:flex flex-col overflow-y-auto shrink-0">
+            <div class="p-6">
+                <h3 class="text-xs font-semibold text-brand-muted uppercase tracking-wider mb-4">Getting Started</h3>
+                <nav class="space-y-3 text-sm mb-8">
+                    <a href="#introduction" class="block text-brand-muted hover:text-white transition">Introduction</a>
+                    <a href="#authentication" class="block text-brand-muted hover:text-white transition">Authentication</a>
+                </nav>
+
+                <h3 class="text-xs font-semibold text-brand-muted uppercase tracking-wider mb-4">API Reference</h3>
+                <nav class="space-y-3 text-sm mb-8">
+                    <a href="#generate-qr" class="block text-brand-muted hover:text-white transition">Generate QR</a>
+                    <a href="#verify-payment" class="block text-brand-muted hover:text-white transition">Verify Payment</a>
+                </nav>
+
+                <h3 class="text-xs font-semibold text-brand-muted uppercase tracking-wider mb-4">Examples</h3>
+                <nav class="space-y-3 text-sm">
+                    <a href="#python" class="block text-brand-muted hover:text-white transition">Python</a>
+                    <a href="#javascript" class="block text-brand-muted hover:text-white transition">Node.js / JS</a>
+                </nav>
+            </div>
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 p-8 md:p-12 max-w-4xl">
-            <div class="mb-12">
-                <h1 class="text-4xl font-bold mb-4">API Documentation</h1>
-                <p class="text-lg text-brand-muted">Two endpoints. Two calls. That's the entire integration.</p>
-            </div>
-
-            <!-- Introduction -->
-            <section id="introduction" class="mb-16 scroll-mt-24">
-                <h2 class="text-2xl font-semibold mb-4 border-b border-brand-border pb-2">Introduction</h2>
-                <p class="text-brand-muted mb-4 leading-relaxed">
-                    The Auto-Pay Verification API allows you to accept UPI payments via FamApp and verify them automatically. 
-                    By utilising our unique "amount fingerprinting" system, every transaction is matched perfectly without relying on manual screenshots.
-                </p>
-                <div class="bg-blue-900/20 border border-blue-900/50 rounded-lg p-4 text-blue-200 text-sm flex gap-3">
-                    <i data-lucide="info" class="w-5 h-5 flex-shrink-0 mt-0.5"></i>
-                    <p>FamApp removed the "Purpose:" field from notification emails. Our API solves this by adding 1–99 paise to the requested amount (e.g., ₹10.05), creating a unique fingerprint.</p>
-                </div>
-            </section>
-
-            <!-- Authentication -->
-            <section id="authentication" class="mb-16 scroll-mt-24">
-                <h2 class="text-2xl font-semibold mb-4 border-b border-brand-border pb-2">Authentication</h2>
-                <p class="text-brand-muted mb-4 leading-relaxed">
-                    To get your API key:
-                </p>
-                <ol class="list-decimal list-inside text-brand-muted space-y-2 mb-4 ml-2">
-                    <li>Go to the <a href="/api/login" class="text-blue-400 hover:underline">Dashboard</a> and sign in with Google.</li>
-                    <li>Use the Gmail account that receives FamApp notifications.</li>
-                    <li>Copy your 20-character API key.</li>
-                </ol>
-                <p class="text-brand-muted mb-4">You can pass the key in the query parameter or in the Authorization header:</p>
-                <div class="relative bg-[#050505] border border-brand-border rounded-lg p-4 font-mono text-sm mb-4">
-                    <button class="absolute top-3 right-3 text-brand-muted hover:text-white copy-btn" onclick="copyCode(this)"><i data-lucide="copy" class="w-4 h-4"></i></button>
-                    <pre><code>Authorization: Bearer YOUR_API_KEY</code></pre>
-                </div>
-            </section>
-
-            <!-- Generate QR -->
-            <section id="generate-qr" class="mb-16 scroll-mt-24">
-                <h2 class="text-2xl font-semibold mb-4 border-b border-brand-border pb-2">1. Generate Payment QR</h2>
-                <div class="flex items-center gap-2 mb-4">
-                    <span class="bg-green-900/30 text-green-400 border border-green-800/50 px-2 py-1 rounded text-xs font-semibold font-mono">GET</span>
-                    <code class="text-sm font-mono text-white">/qr</code>
-                </div>
-                <p class="text-brand-muted mb-4">Generates a scannable UPI QR code with the fingerprint amount embedded.</p>
-                
-                <h3 class="text-lg font-medium mb-2 mt-6">Query Parameters</h3>
-                <div class="overflow-x-auto mb-6">
-                    <table class="w-full text-left text-sm border-collapse">
-                        <thead>
-                            <tr class="border-b border-brand-border text-brand-muted">
-                                <th class="pb-2 font-medium">Name</th>
-                                <th class="pb-2 font-medium">Required</th>
-                                <th class="pb-2 font-medium">Description</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-brand-border">
-                            <tr>
-                                <td class="py-3 font-mono text-white">upi</td>
-                                <td class="py-3 text-green-400">Yes</td>
-                                <td class="py-3 text-brand-muted">Your UPI ID, e.g., yourname@fam</td>
-                            </tr>
-                            <tr>
-                                <td class="py-3 font-mono text-white">amount</td>
-                                <td class="py-3 text-green-400">Yes</td>
-                                <td class="py-3 text-brand-muted">Base amount in rupees (integer)</td>
-                            </tr>
-                            <tr>
-                                <td class="py-3 font-mono text-white">bot_name</td>
-                                <td class="py-3 text-green-400">Yes</td>
-                                <td class="py-3 text-brand-muted">Display name shown to payer</td>
-                            </tr>
-                            <tr>
-                                <td class="py-3 font-mono text-white">remark</td>
-                                <td class="py-3 text-green-400">Yes</td>
-                                <td class="py-3 text-brand-muted">Unique alphanumeric string</td>
-                            </tr>
-                        </tbody>
-                    </table>
+        <main class="flex-1 overflow-y-auto w-full">
+            <div class="max-w-4xl mx-auto px-6 py-12">
+                <div class="mb-12">
+                    <h1 class="text-4xl font-bold mb-4">API Documentation</h1>
+                    <p class="text-lg text-brand-muted">Two endpoints. Two calls. That's the entire integration.</p>
                 </div>
 
-                <h3 class="text-lg font-medium mb-2">Response Headers</h3>
-                <p class="text-brand-muted mb-4">The API returns a PNG image. You must read the <code class="text-white">X-Final-Amount</code> header to know the exact fingerprint.</p>
-                <div class="relative bg-[#050505] border border-brand-border rounded-lg p-4 font-mono text-sm mb-4">
-                    <button class="absolute top-3 right-3 text-brand-muted hover:text-white copy-btn" onclick="copyCode(this)"><i data-lucide="copy" class="w-4 h-4"></i></button>
-                    <pre><code>X-Final-Amount: 10.05
+                <section id="introduction" class="mb-16 scroll-mt-24">
+                    <h2 class="text-2xl font-semibold mb-4 border-b border-brand-border pb-2">Introduction</h2>
+                    <p class="text-brand-muted mb-4 leading-relaxed">
+                        The Auto-Pay Verification API allows you to accept UPI payments via FamApp and verify them automatically. 
+                        By utilising our unique "amount fingerprinting" system, every transaction is matched perfectly without relying on manual screenshots.
+                    </p>
+                    <div class="bg-blue-900/20 border border-blue-900/50 rounded-lg p-4 text-blue-200 text-sm flex gap-3">
+                        <i data-lucide="info" class="w-5 h-5 flex-shrink-0 mt-0.5"></i>
+                        <p>FamApp removed the "Purpose:" field from notification emails. Our API solves this by adding 1–99 paise to the requested amount (e.g., ₹10.05), creating a unique fingerprint.</p>
+                    </div>
+                </section>
+
+                <section id="authentication" class="mb-16 scroll-mt-24">
+                    <h2 class="text-2xl font-semibold mb-4 border-b border-brand-border pb-2">Authentication</h2>
+                    <p class="text-brand-muted mb-4">To get your API key, go to the <a href="/dashboard" class="text-blue-400 hover:underline">Dashboard</a> and sign in with Google using the account that receives FamApp notifications. Copy your 20-character API key.</p>
+                    <p class="text-brand-muted mb-4">You can pass the key in the query parameter or in the Authorization header:</p>
+                    <div class="relative bg-[#050505] border border-brand-border rounded-lg p-4 font-mono text-sm mb-4">
+                        <button class="absolute top-3 right-3 text-brand-muted hover:text-white copy-btn" onclick="copyCode(this)"><i data-lucide="copy" class="w-4 h-4"></i></button>
+                        <pre><code>Authorization: Bearer YOUR_API_KEY</code></pre>
+                    </div>
+                </section>
+
+                <section id="generate-qr" class="mb-16 scroll-mt-24">
+                    <h2 class="text-2xl font-semibold mb-4 border-b border-brand-border pb-2">1. Generate Payment QR</h2>
+                    <div class="flex items-center gap-2 mb-4">
+                        <span class="bg-green-900/30 text-green-400 border border-green-800/50 px-2 py-1 rounded text-xs font-semibold font-mono">GET</span>
+                        <code class="text-sm font-mono text-white">/qr</code>
+                    </div>
+                    <p class="text-brand-muted mb-4">Generates a scannable UPI QR code with the fingerprint amount embedded.</p>
+                    
+                    <h3 class="text-lg font-medium mb-2 mt-6">Query Parameters</h3>
+                    <div class="overflow-x-auto mb-6">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <thead>
+                                <tr class="border-b border-brand-border text-brand-muted">
+                                    <th class="pb-2 font-medium">Name</th>
+                                    <th class="pb-2 font-medium">Required</th>
+                                    <th class="pb-2 font-medium">Description</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-brand-border">
+                                <tr>
+                                    <td class="py-3 font-mono text-white">upi</td>
+                                    <td class="py-3 text-green-400">Yes</td>
+                                    <td class="py-3 text-brand-muted">Your UPI ID, e.g., yourname@fam</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 font-mono text-white">amount</td>
+                                    <td class="py-3 text-green-400">Yes</td>
+                                    <td class="py-3 text-brand-muted">Base amount in rupees (integer)</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 font-mono text-white">bot_name</td>
+                                    <td class="py-3 text-green-400">Yes</td>
+                                    <td class="py-3 text-brand-muted">Display name shown to payer</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 font-mono text-white">remark</td>
+                                    <td class="py-3 text-green-400">Yes</td>
+                                    <td class="py-3 text-brand-muted">Unique alphanumeric string</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3 class="text-lg font-medium mb-2">Response Headers</h3>
+                    <p class="text-brand-muted mb-4">The API returns a PNG image. You must read the <code class="text-white">X-Final-Amount</code> header to know the exact fingerprint.</p>
+                    <div class="relative bg-[#050505] border border-brand-border rounded-lg p-4 font-mono text-sm mb-4">
+                        <button class="absolute top-3 right-3 text-brand-muted hover:text-white copy-btn" onclick="copyCode(this)"><i data-lucide="copy" class="w-4 h-4"></i></button>
+                        <pre><code>X-Final-Amount: 10.05
 X-Base-Amount: 10
 X-Paise: 5</code></pre>
-                </div>
-            </section>
+                    </div>
+                </section>
 
-            <!-- Verify Payment -->
-            <section id="verify-payment" class="mb-16 scroll-mt-24">
-                <h2 class="text-2xl font-semibold mb-4 border-b border-brand-border pb-2">2. Verify Payment</h2>
-                <div class="flex items-center gap-2 mb-4">
-                    <span class="bg-green-900/30 text-green-400 border border-green-800/50 px-2 py-1 rounded text-xs font-semibold font-mono">GET</span>
-                    <code class="text-sm font-mono text-white">/api/verify</code>
-                </div>
-                <p class="text-brand-muted mb-4">Checks if a FamApp email with the exact fingerprint amount arrived within the last 10 minutes.</p>
+                <section id="verify-payment" class="mb-16 scroll-mt-24">
+                    <h2 class="text-2xl font-semibold mb-4 border-b border-brand-border pb-2">2. Verify Payment</h2>
+                    <div class="flex items-center gap-2 mb-4">
+                        <span class="bg-green-900/30 text-green-400 border border-green-800/50 px-2 py-1 rounded text-xs font-semibold font-mono">GET</span>
+                        <code class="text-sm font-mono text-white">/api/verify</code>
+                    </div>
+                    <p class="text-brand-muted mb-4">Checks if a FamApp email with the exact fingerprint amount arrived within the last 10 minutes.</p>
 
-                <h3 class="text-lg font-medium mb-2 mt-6">Query Parameters</h3>
-                <div class="overflow-x-auto mb-6">
-                    <table class="w-full text-left text-sm border-collapse">
-                        <thead>
-                            <tr class="border-b border-brand-border text-brand-muted">
-                                <th class="pb-2 font-medium">Name</th>
-                                <th class="pb-2 font-medium">Required</th>
-                                <th class="pb-2 font-medium">Description</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-brand-border">
-                            <tr>
-                                <td class="py-3 font-mono text-white">key</td>
-                                <td class="py-3 text-green-400">Yes</td>
-                                <td class="py-3 text-brand-muted">Your API key</td>
-                            </tr>
-                            <tr>
-                                <td class="py-3 font-mono text-white">amount</td>
-                                <td class="py-3 text-green-400">Yes</td>
-                                <td class="py-3 text-brand-muted">The X-Final-Amount from step 1</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                    <h3 class="text-lg font-medium mb-2 mt-6">Query Parameters</h3>
+                    <div class="overflow-x-auto mb-6">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <thead>
+                                <tr class="border-b border-brand-border text-brand-muted">
+                                    <th class="pb-2 font-medium">Name</th>
+                                    <th class="pb-2 font-medium">Required</th>
+                                    <th class="pb-2 font-medium">Description</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-brand-border">
+                                <tr>
+                                    <td class="py-3 font-mono text-white">key</td>
+                                    <td class="py-3 text-green-400">Yes</td>
+                                    <td class="py-3 text-brand-muted">Your API key</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-3 font-mono text-white">amount</td>
+                                    <td class="py-3 text-green-400">Yes</td>
+                                    <td class="py-3 text-brand-muted">The X-Final-Amount from step 1</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
-                <h3 class="text-lg font-medium mb-2">Response (JSON)</h3>
-                <div class="relative bg-[#050505] border border-brand-border rounded-lg p-4 font-mono text-sm mb-4">
-                    <button class="absolute top-3 right-3 text-brand-muted hover:text-white copy-btn" onclick="copyCode(this)"><i data-lucide="copy" class="w-4 h-4"></i></button>
-                    <pre><code>{
+                    <h3 class="text-lg font-medium mb-2">Response (JSON)</h3>
+                    <div class="relative bg-[#050505] border border-brand-border rounded-lg p-4 font-mono text-sm mb-4">
+                        <button class="absolute top-3 right-3 text-brand-muted hover:text-white copy-btn" onclick="copyCode(this)"><i data-lucide="copy" class="w-4 h-4"></i></button>
+                        <pre><code>{
   "verified": true,
   "received": 10.05,
   "status": "exact"
 }</code></pre>
-                </div>
-            </section>
+                    </div>
+                </section>
 
-            <!-- Python Example -->
-            <section id="python" class="mb-16 scroll-mt-24">
-                <h2 class="text-2xl font-semibold mb-4 border-b border-brand-border pb-2">Python Implementation</h2>
-                <p class="text-brand-muted mb-4">Here is a complete example using <code class="text-white">requests</code>.</p>
-                <div class="relative bg-[#050505] border border-brand-border rounded-lg p-4 font-mono text-sm mb-4">
-                    <button class="absolute top-3 right-3 text-brand-muted hover:text-white copy-btn" onclick="copyCode(this)"><i data-lucide="copy" class="w-4 h-4"></i></button>
-                    <pre><code>import requests
+                <section id="python" class="mb-16 scroll-mt-24">
+                    <h2 class="text-2xl font-semibold mb-4 border-b border-brand-border pb-2">Python Implementation</h2>
+                    <p class="text-brand-muted mb-4">Here is a complete example using <code class="text-white">requests</code>.</p>
+                    <div class="relative bg-[#050505] border border-brand-border rounded-lg p-4 font-mono text-sm mb-4">
+                        <button class="absolute top-3 right-3 text-brand-muted hover:text-white copy-btn" onclick="copyCode(this)"><i data-lucide="copy" class="w-4 h-4"></i></button>
+                        <pre><code>import requests
 import time
 import secrets
 import string
@@ -245,15 +281,14 @@ for _ in range(10):
         print("Payment Successful!")
         break
     time.sleep(5)</code></pre>
-                </div>
-            </section>
+                    </div>
+                </section>
 
-            <!-- JavaScript Example -->
-            <section id="javascript" class="mb-16 scroll-mt-24">
-                <h2 class="text-2xl font-semibold mb-4 border-b border-brand-border pb-2">Node.js / JavaScript</h2>
-                <div class="relative bg-[#050505] border border-brand-border rounded-lg p-4 font-mono text-sm mb-4">
-                    <button class="absolute top-3 right-3 text-brand-muted hover:text-white copy-btn" onclick="copyCode(this)"><i data-lucide="copy" class="w-4 h-4"></i></button>
-                    <pre><code>const crypto = require("crypto");
+                <section id="javascript" class="mb-16 scroll-mt-24">
+                    <h2 class="text-2xl font-semibold mb-4 border-b border-brand-border pb-2">Node.js / JavaScript</h2>
+                    <div class="relative bg-[#050505] border border-brand-border rounded-lg p-4 font-mono text-sm mb-4">
+                        <button class="absolute top-3 right-3 text-brand-muted hover:text-white copy-btn" onclick="copyCode(this)"><i data-lucide="copy" class="w-4 h-4"></i></button>
+                        <pre><code>const crypto = require("crypto");
 
 const API_KEY = "YOUR_API_KEY";
 const UPI_ID = "yourname@fam";
@@ -289,14 +324,25 @@ async function verify(amount) {
     if (result.status === "exact") console.log("Success!");
   }, 5000);
 })();</code></pre>
-                </div>
-            </section>
+                    </div>
+                </section>
+            </div>
         </main>
     </div>
 
     <script>
         lucide.createIcons();
-
+        function toggleMenu() {
+            const menu = document.getElementById('sideMenu');
+            const overlay = document.getElementById('menuOverlay');
+            if (menu.classList.contains('translate-x-full')) {
+                menu.classList.remove('translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                menu.classList.add('translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
         function copyCode(btn) {
             const pre = btn.parentElement.querySelector('pre');
             const code = pre.innerText;
@@ -304,10 +350,7 @@ async function verify(amount) {
                 const originalHTML = btn.innerHTML;
                 btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-green-400"></i>';
                 lucide.createIcons();
-                setTimeout(() => {
-                    btn.innerHTML = originalHTML;
-                    lucide.createIcons();
-                }, 2000);
+                setTimeout(() => { btn.innerHTML = originalHTML; lucide.createIcons(); }, 2000);
             });
         }
     </script>
