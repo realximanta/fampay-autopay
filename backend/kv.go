@@ -277,6 +277,9 @@ func LogNotification(email, title, body string) {
 	if err == nil && resp != nil {
 		resp.Body.Close()
 	}
+
+	// Trigger real-time push notification to the device
+	go SendPushNotification(email, title, body)
 }
 
 func GetNotifications(email string) ([]NotificationEntry, error) {
