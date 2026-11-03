@@ -57,6 +57,16 @@ func main() {
 			http.NotFound(w, r)
 			return
 		}
+
+		// CHECK SESSION: If user is already logged in, redirect to dashboard
+		if cookie, err := r.Cookie("session"); err == nil {
+			var email string
+			if err := KVGet("session:"+cookie.Value, &email); err == nil {
+				http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+				return
+			}
+		}
+
 		w.Header().Set("Cache-Control", "no-store")
 		indexTmpl.Execute(w, nil)
 	})
