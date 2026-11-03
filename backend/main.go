@@ -48,7 +48,7 @@ func main() {
 		log.Fatal("Failed to parse terms template: ", err)
 	}
 
-	// Start the background email worker for expiries
+	// Start the background email & notification worker
 	StartEmailWorker()
 
 	// Landing Page & Release API
@@ -74,6 +74,11 @@ func main() {
 	http.HandleFunc("/api/recharge/verify", HandleRechargeVerify)
 	http.HandleFunc("/qr", HandleQR)
 	
+	// Notifications API (For Web & Android App)
+	http.HandleFunc("/api/notifications", HandleGetNotifications)
+	http.HandleFunc("/api/notifications/read", HandleMarkNotificationsRead)
+	http.HandleFunc("/api/notifications/register", HandleRegisterDevice)
+
 	// Admin API
 	http.HandleFunc("/api/admin/login", HandleAdminLogin)
 	http.HandleFunc("/api/admin/logout", HandleAdminLogout)
