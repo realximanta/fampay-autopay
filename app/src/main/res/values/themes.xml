@@ -1,0 +1,21 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. Using DayNight to respect system settings, 
+         but overriding colors to force our brand look. -->
+    <style name="Theme.AutoPay" parent="android:Theme.Material.NoActionBar">
+        <!-- Primary brand color. -->
+        <item name="android:colorPrimary">#FFFFFF</item>
+        <item name="android:colorPrimaryDark">#000000</item>
+        <item name="android:colorAccent">#FFFFFF</item>
+        
+        <!-- Status bar color. -->
+        <item name="android:statusBarColor">#000000</item>
+        <item name="android:navigationBarColor">#000000</item>
+        
+        <!-- Window background -->
+        <item name="android:windowBackground">#000000</item>
+        
+        <!-- Text colors -->
+        <item name="android:textColorPrimary">#EDEDED</item>
+        <item name="android:textColorSecondary">#888888</item>
+    </style>
+</resources>
