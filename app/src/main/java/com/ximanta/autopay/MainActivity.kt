@@ -12,6 +12,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -30,8 +32,12 @@ import com.google.firebase.messaging.FirebaseMessaging
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 // --- THEME COLORS ---
@@ -42,6 +48,7 @@ val TextWhite = Color(0xFFededed)
 val TextMuted = Color(0xFF888888)
 val AccentYellow = Color(0xFFfacc15)
 val AccentGreen = Color(0xFF22c55e)
+val AccentRed = Color(0xFFef4444)
 
 // --- NETWORK CLIENT ---
 val client = OkHttpClient.Builder()
@@ -106,7 +113,6 @@ fun AutoPayApp() {
     var showWebView by remember { mutableStateOf(false) }
     var currentScreen by remember { mutableStateOf("home") }
 
-    // If already logged in on app open, register the token
     LaunchedEffect(sessionCookie) {
         if (sessionCookie != null) {
             registerFcmTokenWithBackend(context, sessionCookie!!)
@@ -199,7 +205,6 @@ fun OAuthWebView(onSuccess: (String) -> Unit, onCancel: () -> Unit) {
                     webViewClient = object : WebViewClient() {
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
-                            // Detect when the user is redirected to the dashboard
                             if (url != null && url.contains("auto-payment.ximanta.xyz/dashboard")) {
                                 val cookies = CookieManager.getInstance().getCookie(url)
                                 val sessionCookie = cookies?.split(";")?.find { it.trim().startsWith("session=") }?.trim()
@@ -223,7 +228,6 @@ fun DashboardScreen(cookie: String) {
     var daysLeft by remember { mutableStateOf("0") }
     val context = LocalContext.current
 
-    // Fetch user data on launch
     LaunchedEffect(cookie) {
         val request = Request.Builder()
             .url("https://auto-payment.ximanta.xyz/api/me")
@@ -231,28 +235,20 @@ fun DashboardScreen(cookie: String) {
             .build()
 
         client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                apiKey = "Network Error"
-            }
-
+            override fun onFailure(call: Call, e: IOException) { apiKey = "Network Error" }
             override fun onResponse(call: Call, response: Response) {
                 response.body?.string()?.let { body ->
                     try {
                         val json = JSONObject(body)
                         apiKey = json.optString("api_key", "No Key")
                         daysLeft = json.optString("days_left", "0")
-                    } catch (e: Exception) {
-                        apiKey = "Parse Error"
-                    }
+                    } catch (e: Exception) { apiKey = "Parse Error" }
                 }
             }
         })
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp)
-    ) {
-        // Top Bar
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -262,13 +258,9 @@ fun DashboardScreen(cookie: String) {
             Icon(Icons.Default.Notifications, contentDescription = "Notifications", tint = TextWhite)
         }
 
-        // API Key Card
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(SurfaceDark, RoundedCornerShape(12.dp))
-                .border(1.dp, BorderGray, RoundedCornerShape(12.dp))
-                .padding(16.dp)
+            modifier = Modifier.fillMaxWidth().background(SurfaceDark, RoundedCornerShape(12.dp))
+                .border(1.dp, BorderGray, RoundedCornerShape(12.dp)).padding(16.dp)
         ) {
             Text("Your API Key", color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
@@ -282,26 +274,17 @@ fun DashboardScreen(cookie: String) {
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                     val clip = android.content.ClipData.newPlainText("API Key", apiKey)
                     clipboard.setPrimaryClip(clip)
-                }) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = TextMuted)
-                }
+                }) { Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = TextMuted) }
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Subscription Card
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(SurfaceDark, RoundedCornerShape(12.dp))
-                .border(1.dp, BorderGray, RoundedCornerShape(12.dp))
-                .padding(16.dp)
+            modifier = Modifier.fillMaxWidth().background(SurfaceDark, RoundedCornerShape(12.dp))
+                .border(1.dp, BorderGray, RoundedCornerShape(12.dp)).padding(16.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
                     Text("Subscription", color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     Row(verticalAlignment = Alignment.Bottom) {
@@ -314,7 +297,6 @@ fun DashboardScreen(cookie: String) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Plans
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PlanButton(title = "Go", days = "7d", price = "₹10", modifier = Modifier.weight(1f))
                 PlanButton(title = "Plus", days = "21d", price = "₹25", modifier = Modifier.weight(1f))
@@ -327,10 +309,8 @@ fun DashboardScreen(cookie: String) {
 @Composable
 fun PlanButton(title: String, days: String, price: String, modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier
-            .background(BgBlack, RoundedCornerShape(8.dp))
-            .border(1.dp, BorderGray, RoundedCornerShape(8.dp))
-            .padding(12.dp),
+        modifier = modifier.background(BgBlack, RoundedCornerShape(8.dp))
+            .border(1.dp, BorderGray, RoundedCornerShape(8.dp)).padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(title, color = TextWhite, fontWeight = FontWeight.Bold)
@@ -340,12 +320,97 @@ fun PlanButton(title: String, days: String, price: String, modifier: Modifier = 
     }
 }
 
+// Data class for History
+data class HistoryItem(val event: String, val amount: String, val status: String, val timestamp: Long)
+
 @Composable
 fun HistoryScreen(cookie: String) {
+    var historyList by remember { mutableStateOf<List<HistoryItem>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(cookie) {
+        val request = Request.Builder()
+            .url("https://auto-payment.ximanta.xyz/api/history")
+            .header("Cookie", cookie)
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                isLoading = false
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                isLoading = false
+                response.body?.string()?.let { body ->
+                    try {
+                        val jsonArray = JSONArray(body)
+                        val items = mutableListOf<HistoryItem>()
+                        for (i in 0 until jsonArray.length()) {
+                            val obj = jsonArray.getJSONObject(i)
+                            items.add(
+                                HistoryItem(
+                                    event = obj.optString("event", "Unknown"),
+                                    amount = obj.optString("amount", "0.00"),
+                                    status = obj.optString("status", "unknown"),
+                                    timestamp = obj.optLong("timestamp", 0)
+                                )
+                            )
+                        }
+                        historyList = items
+                    } catch (e: Exception) {
+                        Log.e("History", "Parse error", e)
+                    }
+                }
+            }
+        })
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("History", color = TextWhite, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
-        Text("Loading history...", color = TextMuted)
+        
+        if (isLoading) {
+            Text("Loading history...", color = TextMuted)
+        } else if (historyList.isEmpty()) {
+            Text("No recent activity.", color = TextMuted)
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(historyList) { item ->
+                    HistoryRow(item)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HistoryRow(item: HistoryItem) {
+    val statusColor = when (item.status) {
+        "exact" -> AccentGreen
+        "partial", "overpaid" -> AccentYellow
+        "not_found", "error" -> AccentRed
+        else -> TextMuted
+    }
+    
+    val timeString = try {
+        val sdf = SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault())
+        sdf.format(Date(item.timestamp * 1000))
+    } catch (e: Exception) { "Unknown" }
+
+    Row(
+        modifier = Modifier.fillMaxWidth().background(SurfaceDark, RoundedCornerShape(8.dp))
+            .border(1.dp, BorderGray, RoundedCornerShape(8.dp)).padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            Text(item.event, color = TextWhite, fontWeight = FontWeight.Medium)
+            Text(timeString, color = TextMuted, fontSize = 12.sp)
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text("₹${item.amount}", color = TextWhite, fontWeight = FontWeight.Bold)
+            Text(item.status, color = statusColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
     }
 }
 
