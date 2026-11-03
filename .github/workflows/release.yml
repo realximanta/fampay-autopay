@@ -102,9 +102,6 @@ jobs:
         run: |
           export KEYSTORE_PATH="$HOME/.android/release.keystore"
           API_URL="${{ secrets.AUTOPAY_API_BASE_URL }}"
-          if [ -z "$API_URL" ]; then
-            echo "::warning::AUTOPAY_API_BASE_URL secret not set, using fallback"
-          fi
           if [ -f "./gradlew" ]; then
             chmod +x ./gradlew
             ./gradlew :app:assembleRelease --no-daemon -PAUTOPAY_API_BASE_URL="$API_URL"
@@ -122,6 +119,22 @@ jobs:
           SIZE=$(stat -c%s "$DEST")
           echo "path=$DEST"   >> $GITHUB_OUTPUT
           echo "size=$SIZE"   >> $GITHUB_OUTPUT
+
+      # NEW STEP: Update the landing page automatically
+      - name: Update Landing Page Version
+        run: |
+          TAG="${{ steps.ver.outputs.tag }}"
+          APK_NAME="${{ steps.apk.outputs.path }}"
+          DOWNLOAD_URL="https://github.com/realximanta/fampay-autopay/releases/download/$TAG/$APK_NAME"
+          
+          sed -i "s|id=\"downloadAppBtn\" href=\"[^\"]*\"|id=\"downloadAppBtn\" href=\"$DOWNLOAD_URL\"|" backend/templates/index.html
+          sed -i "s|Download APK (v[0-9.]*)|Download APK ($TAG)|" backend/templates/index.html
+          
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add backend/templates/index.html
+          git commit -m "chore(release): update landing page to $TAG" || echo "No changes to landing page"
+          git push origin HEAD:main
 
       - name: Attach APK to release
         uses: softprops/action-gh-release@v2
@@ -145,7 +158,6 @@ jobs:
             "published_at": "${{ github.event.release.published_at }}"
           }
           EOF
-          cat data/latest.json
 
       - name: Commit latest.json
         run: |
@@ -153,7 +165,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/latest.json
           if git diff --cached --quiet; then
-            echo "no changes to latest.json"
             exit 0
           fi
           git commit -m "chore(release): update latest.json for ${{ steps.ver.outputs.tag }}"
