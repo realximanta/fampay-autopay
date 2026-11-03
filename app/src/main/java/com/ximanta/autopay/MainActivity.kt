@@ -30,12 +30,12 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.launch
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -75,7 +75,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Function to send the FCM token to the Go backend
 fun registerFcmTokenWithBackend(context: Context, cookie: String) {
     FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
         if (!task.isSuccessful) return@addOnCompleteListener
@@ -104,21 +103,21 @@ fun AutoPayApp() {
     var showWebView by remember { mutableStateOf(false) }
     var currentScreen by remember { mutableStateOf("home") }
 
-    // QR Modal State
+    // Modals
     var showQrModal by remember { mutableStateOf(false) }
     var qrBase64 by remember { mutableStateOf("") }
-    var qrAmount by remember { mutableStateOf("") }
     var qrFingerprint by remember { mutableStateOf("") }
+    
+    var showNotifications by remember { mutableStateOf(false) }
+    var notificationList by remember { mutableStateOf<List<AppNotification>>(emptyList()) }
+    var hasUnread by remember { mutableStateOf(false) }
 
     LaunchedEffect(sessionCookie) {
         if (sessionCookie != null) {
             registerFcmTokenWithBackend(context, sessionCookie!!)
             
-            // Fetch user email for profile
-            val request = Request.Builder()
-                .url("https://auto-payment.ximanta.xyz/api/me")
-                .header("Cookie", sessionCookie!!)
-                .build()
+            // Fetch user email and check notifications
+            val request = Request.Builder().url("https://auto-payment.ximanta.xyz/api/me").header("Cookie", sessionCookie!!).build()
             client.newCall(request).enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) {}
                 override fun onResponse(call: Call, response: Response) {
@@ -127,6 +126,10 @@ fun AutoPayApp() {
                     }
                 }
             })
+            fetchNotifications(sessionCookie!!) { list ->
+                notificationList = list
+                hasUnread = list.any { !it.read }
+            }
         }
     }
 
@@ -143,7 +146,6 @@ fun AutoPayApp() {
         if (sessionCookie == null) {
             LandingScreen(onSignInClick = { showWebView = true })
         } else {
-            // Authenticated App Layout with Hamburger Menu
             val drawerState = rememberDrawerState(DrawerValue.Closed)
             val scope = rememberCoroutineScope()
 
@@ -153,10 +155,8 @@ fun AutoPayApp() {
                     ModalDrawerSheet(drawerContainerColor = SurfaceDark) {
                         Spacer(Modifier.height(24.dp))
                         Text("Menu", color = TextWhite, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))
-                        
                         NavigationDrawerItem(label = { Text("Dashboard", color = TextWhite) }, selected = currentScreen == "home", onClick = { currentScreen = "home"; scope.launch { drawerState.close() } })
-                        NavigationDrawerItem(label = { Text("Documentation", color = TextWhite) }, selected = false, onClick = { /* Open web docs */ scope.launch { drawerState.close() } })
-                        NavigationDrawerItem(label = { Text("Privacy Policy", color = TextWhite) }, selected = false, onClick = { scope.launch { drawerState.close() } })
+                        NavigationDrawerItem(label = { Text("Documentation", color = TextWhite) }, selected = false, onClick = { scope.launch { drawerState.close() } })
                         NavigationDrawerItem(label = { Text("Logout", color = AccentRed) }, selected = false, onClick = { 
                             prefs.edit().remove("session_cookie").apply()
                             sessionCookie = null
@@ -176,7 +176,22 @@ fun AutoPayApp() {
                             IconButton(onClick = { scope.launch { drawerState.open() } }) {
                                 Icon(Icons.Default.Menu, contentDescription = "Menu", tint = TextWhite)
                             }
-                            Icon(Icons.Default.Notifications, contentDescription = "Notifications", tint = TextWhite)
+                            
+                            // NOTIFICATION BELL
+                            Box {
+                                IconButton(onClick = { 
+                                    showNotifications = true
+                                    markNotificationsRead(sessionCookie!!) { hasUnread = false }
+                                }) {
+                                    Icon(Icons.Default.Notifications, contentDescription = "Notifications", tint = TextWhite)
+                                }
+                                if (hasUnread) {
+                                    Box(
+                                        modifier = Modifier.size(10.dp).background(AccentRed, RoundedCornerShape(50))
+                                            .align(Alignment.TopEnd).offset(x = (-8).dp, y = 8.dp)
+                                    )
+                                }
+                            }
                         }
                     },
                     bottomBar = { BottomNavBar(currentScreen) { currentScreen = it } }
@@ -186,7 +201,6 @@ fun AutoPayApp() {
                             "home" -> DashboardScreen(
                                 cookie = sessionCookie!!, 
                                 onPlanClick = { plan ->
-                                    // Fetch QR from backend
                                     val json = JSONObject().put("plan_id", plan)
                                     val body = json.toString().toRequestBody("application/json".toMediaType())
                                     val req = Request.Builder().url("https://auto-payment.ximanta.xyz/api/qr").header("Cookie", sessionCookie!!).post(body).build()
@@ -198,7 +212,6 @@ fun AutoPayApp() {
                                                     val obj = JSONObject(resBody)
                                                     qrBase64 = obj.getString("qr_base64")
                                                     qrFingerprint = obj.getString("fingerprint")
-                                                    qrAmount = if(plan == "go") "10" else if (plan == "plus") "25" else "45"
                                                     showQrModal = true
                                                 } catch (_: Exception) {}
                                             }
@@ -216,9 +229,76 @@ fun AutoPayApp() {
                 }
             }
             
-            // QR Code Modal
             if (showQrModal && qrBase64.isNotEmpty()) {
-                QrCodeDialog(base64 = qrBase64, amount = qrFingerprint, planAmount = qrAmount, cookie = sessionCookie!!, onDismiss = { showQrModal = false })
+                QrCodeDialog(base64 = qrBase64, amount = qrFingerprint, cookie = sessionCookie!!, onDismiss = { showQrModal = false })
+            }
+
+            if (showNotifications) {
+                NotificationsDialog(notifications = notificationList, onDismiss = { showNotifications = false })
+            }
+        }
+    }
+}
+
+// --- NETWORK HELPERS FOR NOTIFICATIONS ---
+fun fetchNotifications(cookie: String, onResult: (List<AppNotification>) -> Unit) {
+    val request = Request.Builder().url("https://auto-payment.ximanta.xyz/api/notifications").header("Cookie", cookie).build()
+    client.newCall(request).enqueue(object : Callback {
+        override fun onFailure(call: Call, e: IOException) {}
+        override fun onResponse(call: Call, response: Response) {
+            response.body?.string()?.let { body ->
+                try {
+                    val jsonArray = JSONArray(body)
+                    val list = mutableListOf<AppNotification>()
+                    for (i in 0 until jsonArray.length()) {
+                        val obj = jsonArray.getJSONObject(i)
+                        list.add(AppNotification(obj.optString("title"), obj.optString("body"), obj.optLong("timestamp"), obj.optBoolean("read")))
+                    }
+                    onResult(list)
+                } catch (_: Exception) {}
+            }
+        }
+    })
+}
+
+fun markNotificationsRead(cookie: String, onDone: () -> Unit) {
+    val request = Request.Builder().url("https://auto-payment.ximanta.xyz/api/notifications/read").header("Cookie", cookie).post("".toRequestBody()).build()
+    client.newCall(request).enqueue(object : Callback {
+        override fun onFailure(call: Call, e: IOException) {}
+        override fun onResponse(call: Call, response: Response) { onDone() }
+    })
+}
+
+data class AppNotification(val title: String, val body: String, val timestamp: Long, val read: Boolean)
+
+// --- UI COMPONENTS ---
+
+@Composable
+fun NotificationsDialog(notifications: List<AppNotification>, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.background(SurfaceDark, RoundedCornerShape(16.dp)).border(1.dp, BorderGray, RoundedCornerShape(16.dp)).padding(16.dp).fillMaxWidth().heightIn(max = 500.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Notifications", color = TextWhite, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 16.dp))
+            
+            if (notifications.isEmpty()) {
+                Text("No notifications yet.", color = TextMuted)
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(notifications) { notif ->
+                        Column(modifier = Modifier.fillMaxWidth().background(BgBlack, RoundedCornerShape(8.dp)).padding(12.dp)) {
+                            Text(notif.title, color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text(notif.body, color = TextMuted, fontSize = 12.sp, modifier = Modifier.padding(vertical = 4.dp))
+                            val time = SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()).format(Date(notif.timestamp * 1000))
+                            Text(time, color = AccentBlue, fontSize = 10.sp)
+                        }
+                    }
+                }
+            }
+            
+            TextButton(onClick = onDismiss, modifier = Modifier.padding(top = 8.dp)) {
+                Text("Close", color = AccentRed)
             }
         }
     }
@@ -366,7 +446,7 @@ fun PlanButton(title: String, days: String, price: String, modifier: Modifier = 
     Column(
         modifier = modifier.background(BgBlack, RoundedCornerShape(8.dp))
             .border(1.dp, BorderGray, RoundedCornerShape(8.dp))
-            .clickable { onClick() } // FIXED: Added Clickable
+            .clickable { onClick() }
             .padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -378,10 +458,9 @@ fun PlanButton(title: String, days: String, price: String, modifier: Modifier = 
 }
 
 @Composable
-fun QrCodeDialog(base64: String, amount: String, planAmount: String, cookie: String, onDismiss: () -> Unit) {
+fun QrCodeDialog(base64: String, amount: String, cookie: String, onDismiss: () -> Unit) {
     var status by remember { mutableStateOf("Awaiting payment...") }
     
-    // Poll backend for payment success
     LaunchedEffect(Unit) {
         while(true) {
             val json = JSONObject().put("fingerprint", amount)
@@ -502,15 +581,12 @@ fun HistoryRow(item: HistoryItem) {
 
 @Composable
 fun ProfileScreen(email: String, onLogout: () -> Unit) {
-    // Extract name from email (e.g., "john.doe@gmail.com" -> "John Doe")
     val name = email.substringBefore("@").replace(".", " ").split(" ").joinToString(" ") { 
         it.replaceFirstChar { char -> char.uppercase() } 
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Spacer(modifier = Modifier.height(24.dp))
-        
-        // Profile Header
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier.size(64.dp).background(AccentBlue, RoundedCornerShape(50)),
@@ -524,10 +600,7 @@ fun ProfileScreen(email: String, onLogout: () -> Unit) {
                 Text(email, color = TextMuted, fontSize = 14.sp)
             }
         }
-
         Spacer(modifier = Modifier.height(48.dp))
-
-        // Logout Button
         Button(
             onClick = onLogout,
             colors = ButtonDefaults.buttonColors(containerColor = AccentRed),
