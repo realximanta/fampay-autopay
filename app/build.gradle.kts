@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    // Add the Google services Gradle plugin
     id("com.google.gms.google-services")
 }
 
@@ -22,6 +21,19 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            // These are injected by the GitHub Actions release.yml workflow
+            val keystorePath = System.getenv("KEYSTORE_PATH")
+            if (keystorePath != null) {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -29,6 +41,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Use the release signing config if the keystore exists
+            if (System.getenv("KEYSTORE_PATH") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {
@@ -80,9 +96,7 @@ dependencies {
     implementation("androidx.webkit:webkit:1.10.0")
 
     // --- FIREBASE ---
-    // Import the Firebase BoM
     implementation(platform("com.google.firebase:firebase-bom:32.7.2"))
-    // Add the dependency for Firebase Cloud Messaging
     implementation("com.google.firebase:firebase-messaging")
 
     // Testing
