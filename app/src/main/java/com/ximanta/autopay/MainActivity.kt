@@ -2,13 +2,16 @@ package com.ximanta.autopay
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.util.Base64
 import android.util.Log
 import android.webkit.CookieManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -22,13 +25,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
 import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -76,8 +85,6 @@ fun registerFcmTokenWithBackend(context: Context, cookie: String) {
         }
 
         val token = task.result
-        Log.d("FCM", "Token: $token")
-
         val json = JSONObject()
         json.put("token", token)
 
@@ -90,15 +97,10 @@ fun registerFcmTokenWithBackend(context: Context, cookie: String) {
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                Log.e("FCM", "Failed to register token with backend", e)
+                Log.e("FCM", "Failed to register token", e)
             }
-
             override fun onResponse(call: Call, response: Response) {
-                if (response.isSuccessful) {
-                    Log.d("FCM", "Token successfully registered with backend")
-                } else {
-                    Log.e("FCM", "Backend rejected token: ${response.code}")
-                }
+                if (response.isSuccessful) Log.d("FCM", "Token registered")
             }
         })
     }
@@ -166,9 +168,7 @@ fun LandingScreen(onSignInClick: () -> Unit) {
         Spacer(modifier = Modifier.height(16.dp))
         Text("Auto-Pay", color = TextWhite, fontSize = 32.sp, fontWeight = FontWeight.Bold)
         Text("Automated Payment Verification", color = TextMuted, fontSize = 16.sp, modifier = Modifier.padding(top = 8.dp))
-        
         Spacer(modifier = Modifier.height(48.dp))
-        
         Button(
             onClick = onSignInClick,
             colors = ButtonDefaults.buttonColors(containerColor = TextWhite),
@@ -226,9 +226,13 @@ fun OAuthWebView(onSuccess: (String) -> Unit, onCancel: () -> Unit) {
 fun DashboardScreen(cookie: String) {
     var apiKey by remember { mutableStateOf("Loading...") }
     var daysLeft by remember { mutableStateOf("0") }
+    var showQrDialog by remember { mutableStateOf(false) }
+    var qrBase64 by remember { mutableStateOf("") }
+    var fingerprint by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(cookie) {
+    fun fetchUserData() {
         val request = Request.Builder()
             .url("https://auto-payment.ximanta.xyz/api/me")
             .header("Cookie", cookie)
@@ -248,6 +252,62 @@ fun DashboardScreen(cookie: String) {
         })
     }
 
+    LaunchedEffect(Unit) {
+        fetchUserData()
+    }
+
+    fun initiateRecharge(plan: String) {
+        val json = JSONObject().put("plan_id", plan)
+        val body = json.toString().toRequestBody("application/json".toMediaType())
+        val request = Request.Builder()
+            .url("https://auto-payment.ximanta.xyz/api/qr")
+            .header("Cookie", cookie)
+            .post(body)
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) { Log.e("QR", "Failed", e) }
+            override fun onResponse(call: Call, response: Response) {
+                response.body?.string()?.let { respBody ->
+                    try {
+                        val respJson = JSONObject(respBody)
+                        qrBase64 = respJson.optString("qr_base64")
+                        fingerprint = respJson.optString("fingerprint")
+                        showQrDialog = true
+
+                        // Start Polling
+                        scope.launch {
+                            var isPaid = false
+                            for (i in 1..30) { // 30 tries, 3 sec delay = 90 seconds
+                                delay(3000)
+                                val vJson = JSONObject().put("fingerprint", fingerprint)
+                                val vBody = vJson.toString().toRequestBody("application/json".toMediaType())
+                                val vReq = Request.Builder()
+                                    .url("https://auto-payment.ximanta.xyz/api/recharge/verify")
+                                    .header("Cookie", cookie)
+                                    .post(vBody)
+                                    .build()
+
+                                val vResp = client.newCall(vReq).execute()
+                                if (vResp.isSuccessful) {
+                                    val vData = JSONObject(vResp.body?.string() ?: "{}")
+                                    if (vData.optString("status") == "exact") {
+                                        isPaid = true
+                                        break
+                                    }
+                                }
+                            }
+                            if (isPaid) {
+                                showQrDialog = false
+                                fetchUserData()
+                            }
+                        }
+                    } catch (e: Exception) { Log.e("QR", "Parse", e) }
+                }
+            }
+        })
+    }
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
@@ -258,6 +318,7 @@ fun DashboardScreen(cookie: String) {
             Icon(Icons.Default.Notifications, contentDescription = "Notifications", tint = TextWhite)
         }
 
+        // API Key Card
         Column(
             modifier = Modifier.fillMaxWidth().background(SurfaceDark, RoundedCornerShape(12.dp))
                 .border(1.dp, BorderGray, RoundedCornerShape(12.dp)).padding(16.dp)
@@ -280,6 +341,7 @@ fun DashboardScreen(cookie: String) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Subscription Card
         Column(
             modifier = Modifier.fillMaxWidth().background(SurfaceDark, RoundedCornerShape(12.dp))
                 .border(1.dp, BorderGray, RoundedCornerShape(12.dp)).padding(16.dp)
@@ -297,30 +359,67 @@ fun DashboardScreen(cookie: String) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Plans
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PlanButton(title = "Go", days = "7d", price = "₹10", modifier = Modifier.weight(1f))
-                PlanButton(title = "Plus", days = "21d", price = "₹25", modifier = Modifier.weight(1f))
-                PlanButton(title = "Pro", days = "41d", price = "₹45", modifier = Modifier.weight(1f))
+                PlanButton(title = "Go", days = "7d", price = "₹10", modifier = Modifier.weight(1f)) { initiateRecharge("go") }
+                PlanButton(title = "Plus", days = "21d", price = "₹25", modifier = Modifier.weight(1f)) { initiateRecharge("plus") }
+                PlanButton(title = "Pro", days = "41d", price = "₹45", modifier = Modifier.weight(1f)) { initiateRecharge("pro") }
+            }
+        }
+    }
+
+    // QR Modal
+    if (showQrDialog) {
+        Dialog(onDismissRequest = { showQrDialog = false }) {
+            Column(
+                modifier = Modifier.background(SurfaceDark, RoundedCornerShape(16.dp))
+                    .border(1.dp, BorderGray, RoundedCornerShape(16.dp))
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("Scan to Pay", color = TextWhite, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text("Pay exactly ₹$fingerprint", color = AccentYellow, fontSize = 16.sp, modifier = Modifier.padding(vertical = 8.dp))
+                
+                if (qrBase64.isNotEmpty()) {
+                    val imageBytes = Base64.decode(qrBase64, Base64.DEFAULT)
+                    val imageBitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size).asImageBitmap()
+                    Image(
+                        bitmap = imageBitmap,
+                        contentDescription = "QR Code",
+                        modifier = Modifier.size(250.dp).background(Color.White).padding(8.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                CircularProgressIndicator(color = AccentGreen, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Waiting for confirmation...", color = TextMuted, fontSize = 12.sp)
+                TextButton(onClick = { showQrDialog = false }) {
+                    Text("Cancel", color = AccentRed)
+                }
             }
         }
     }
 }
 
 @Composable
-fun PlanButton(title: String, days: String, price: String, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier.background(BgBlack, RoundedCornerShape(8.dp))
-            .border(1.dp, BorderGray, RoundedCornerShape(8.dp)).padding(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+fun PlanButton(title: String, days: String, price: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(containerColor = BgBlack),
+        shape = RoundedCornerShape(8.dp),
+        modifier = modifier.border(1.dp, BorderGray, RoundedCornerShape(8.dp)).height(80.dp),
+        contentPadding = PaddingValues(4.dp)
     ) {
-        Text(title, color = TextWhite, fontWeight = FontWeight.Bold)
-        Text(days, color = TextMuted, fontSize = 12.sp)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(price, color = AccentGreen, fontWeight = FontWeight.Bold)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(title, color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text(days, color = TextMuted, fontSize = 12.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(price, color = AccentGreen, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        }
     }
 }
 
-// Data class for History
 data class HistoryItem(val event: String, val amount: String, val status: String, val timestamp: Long)
 
 @Composable
@@ -335,10 +434,7 @@ fun HistoryScreen(cookie: String) {
             .build()
 
         client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                isLoading = false
-            }
-
+            override fun onFailure(call: Call, e: IOException) { isLoading = false }
             override fun onResponse(call: Call, response: Response) {
                 isLoading = false
                 response.body?.string()?.let { body ->
@@ -357,9 +453,7 @@ fun HistoryScreen(cookie: String) {
                             )
                         }
                         historyList = items
-                    } catch (e: Exception) {
-                        Log.e("History", "Parse error", e)
-                    }
+                    } catch (e: Exception) { Log.e("History", "Parse", e) }
                 }
             }
         })
@@ -375,9 +469,7 @@ fun HistoryScreen(cookie: String) {
             Text("No recent activity.", color = TextMuted)
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(historyList) { item ->
-                    HistoryRow(item)
-                }
+                items(historyList) { item -> HistoryRow(item) }
             }
         }
     }
@@ -391,10 +483,8 @@ fun HistoryRow(item: HistoryItem) {
         "not_found", "error" -> AccentRed
         else -> TextMuted
     }
-    
     val timeString = try {
-        val sdf = SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault())
-        sdf.format(Date(item.timestamp * 1000))
+        SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()).format(Date(item.timestamp * 1000))
     } catch (e: Exception) { "Unknown" }
 
     Row(
