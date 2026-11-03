@@ -103,13 +103,16 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) {
 
 	var userKey KeyData
 	if err := KVGet("user:"+email, &userKey); err != nil {
+		// NEW USER SIGN UP
 		newKey := generateSecureRandomString(20)
 		userKey = KeyData{Email: email, ExpiresAt: time.Now().Unix()}
 		KVPut("user:"+email, userKey, 0)
 		KVPut("key:"+newKey, userKey, 0)
 		KVPut("email_key:"+email, newKey, 0)
 		
+		// Send Welcome Email & In-App Notification
 		go SendWelcomeEmail(email)
+		go LogNotification(email, "Welcome to Auto-Pay! 🚀", "Your account is ready. Integrate our API to automate your FamApp payments.")
 		
 	} else {
 		userKey.EncryptedToken = encToken
@@ -182,6 +185,71 @@ func HandleGetHistory(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(history)
 }
 
+// --- NEW: NOTIFICATION ENDPOINTS ---
+
+func HandleGetNotifications(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("session")
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Unauthorized"})
+		return
+	}
+	var email string
+	if err := KVGet("session:"+cookie.Value, &email); err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Session expired"})
+		return
+	}
+
+	notifications, _ := GetNotifications(email)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(notifications)
+}
+
+func HandleMarkNotificationsRead(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("session")
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	var email string
+	if err := KVGet("session:"+cookie.Value, &email); err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	MarkNotificationsRead(email)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"success": true}`))
+}
+
+func HandleRegisterDevice(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("session")
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	var email string
+	if err := KVGet("session:"+cookie.Value, &email); err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Token == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	SaveFCMToken(email, req.Token)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"success": true}`))
+}
+
+// ----------------------------------
+
 func HandleRevoke(w http.ResponseWriter, r *http.Request) {
 	cookie, _ := r.Cookie("session")
 	var email string
@@ -208,7 +276,6 @@ func HandleGenerateQR(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 
-	// Default to Go Plan
 	amount := 10
 	days := 7
 	
@@ -231,7 +298,6 @@ func HandleGenerateQR(w http.ResponseWriter, r *http.Request) {
 	pending := PendingData{Email: email, Amount: amount, Days: days}
 	KVPut("pending:"+fp, pending, 900)
 
-	// Log to History
 	LogHistory(email, "QR Generated", fp, "generated")
 
 	upiURI := fmt.Sprintf("upi://pay?pa=%s&pn=%s&am=%s&tn=%s", 
@@ -299,11 +365,11 @@ func HandleRechargeVerify(w http.ResponseWriter, r *http.Request) {
 	KVDelete("payment:" + req.Fingerprint)
 	KVDelete("pending:" + req.Fingerprint)
 
-	// Log to History
 	LogHistory(email, "Subscription Recharged", req.Fingerprint, "exact")
 	
-	// Send Thank You Email
+	// Send Thank You Email & In-App Notification
 	go SendThankYouEmail(pending.Email, float64(pending.Amount), pending.Days)
+	go LogNotification(pending.Email, "Subscription Recharged", fmt.Sprintf("Successfully added %d days to your API key.", pending.Days))
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{"status": "exact", "verified": true})
