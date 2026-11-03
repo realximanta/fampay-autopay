@@ -14,16 +14,20 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
+	"strings"
 	"time"
 )
 
 var cfAccountID = os.Getenv("CF_ACCOUNT_ID")
 var cfNamespaceID = os.Getenv("CF_NAMESPACE_ID")
 var cfHistoryNamespaceID = os.Getenv("CF_HISTORY_NAMESPACE_ID")
+var cfNotificationsNamespaceID = os.Getenv("CF_NOTIFICATIONS_NAMESPACE_ID")
 var cfAPIToken = os.Getenv("CF_API_TOKEN")
 
 var kvBaseURL = fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/values", cfAccountID, cfNamespaceID)
 var historyBaseURL = fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/values", cfAccountID, cfHistoryNamespaceID)
+var notificationsBaseURL = fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/values", cfAccountID, cfNotificationsNamespaceID)
 
 // --- ENCRYPTION ---
 func getEncryptionKey() []byte {
@@ -124,6 +128,13 @@ type HistoryEntry struct {
 	Timestamp int64  `json:"timestamp"`
 }
 
+type NotificationEntry struct {
+	Title     string `json:"title"`
+	Body      string `json:"body"`
+	Timestamp int64  `json:"timestamp"`
+	Read      bool   `json:"read"`
+}
+
 // --- CORE KV FUNCTIONS ---
 func KVGet(key string, v interface{}) error {
 	req, _ := http.NewRequest("GET", kvBaseURL+"/"+key, nil)
@@ -179,10 +190,9 @@ func MarkUTRUsed(utr string, amount string, email string) {
 // --- HISTORY KV FUNCTIONS ---
 func LogHistory(email, event, amount, status string) {
 	if cfHistoryNamespaceID == "" {
-		return // Silently fail if history KV isn't configured
+		return
 	}
 	ts := time.Now().Unix()
-	// Key format: history:email:timestamp:randomString
 	key := fmt.Sprintf("history:%s:%d:%s", email, ts, generateSecureRandomString(4))
 	entry := HistoryEntry{Event: event, Amount: amount, Status: status, Timestamp: ts}
 	body, _ := json.Marshal(entry)
@@ -190,7 +200,7 @@ func LogHistory(email, event, amount, status string) {
 	req, _ := http.NewRequest("PUT", historyBaseURL+"/"+key, bytes.NewBuffer(body))
 	req.Header.Set("Authorization", "Bearer "+cfAPIToken)
 	req.Header.Set("Content-Type", "application/json")
-	req.URL.RawQuery = "expiration_ttl=7776000" // 90 days retention
+	req.URL.RawQuery = "expiration_ttl=7776000"
 	http.DefaultClient.Do(req)
 }
 
@@ -215,7 +225,6 @@ func GetUserHistory(email string) ([]HistoryEntry, error) {
 	json.NewDecoder(resp.Body).Decode(&res)
 
 	var entries []HistoryEntry
-	// Fetch the latest 30 records to prevent long load times
 	start := 0
 	if len(res.Result) > 30 {
 		start = len(res.Result) - 30
@@ -237,10 +246,148 @@ func GetUserHistory(email string) ([]HistoryEntry, error) {
 		}
 	}
 
-	// Reverse slice to show newest first
 	for i, j := 0, len(entries)-1; i < j; i, j = i+1, j-1 {
 		entries[i], entries[j] = entries[j], entries[i]
 	}
 
 	return entries, nil
+}
+
+// --- NOTIFICATIONS KV FUNCTIONS ---
+// We use a prefix-based key structure (notification:<email>:<timestamp>) 
+// to avoid write contention (last-writer-wins) that occurs when storing 
+// an entire JSON array under a single key.
+
+func LogNotification(email, title, body string) {
+	if cfNotificationsNamespaceID == "" {
+		return
+	}
+	ts := time.Now().UnixNano() // Use nanoseconds for uniqueness
+	key := fmt.Sprintf("notification:%s:%d", email, ts)
+	
+	entry := NotificationEntry{
+		Title:     title,
+		Body:      body,
+		Timestamp: time.Now().Unix(),
+		Read:      false,
+	}
+
+	jsonData, _ := json.Marshal(entry)
+	req, _ := http.NewRequest("PUT", notificationsBaseURL+"/"+key, bytes.NewBuffer(jsonData))
+	req.Header.Set("Authorization", "Bearer "+cfAPIToken)
+	req.Header.Set("Content-Type", "application/json")
+	
+	// Keep notifications for 90 days
+	req.URL.RawQuery = "expiration_ttl=7776000" 
+	
+	resp, err := http.DefaultClient.Do(req)
+	if err == nil && resp != nil {
+		resp.Body.Close()
+	}
+}
+
+func GetNotifications(email string) ([]NotificationEntry, error) {
+	if cfNotificationsNamespaceID == "" {
+		return []NotificationEntry{}, nil
+	}
+
+	listURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/keys?prefix=notification:%s:", cfAccountID, cfNotificationsNamespaceID, email)
+	req, _ := http.NewRequest("GET", listURL, nil)
+	req.Header.Set("Authorization", "Bearer "+cfAPIToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var res struct {
+		Result []struct {
+			Name string `json:"name"`
+		} `json:"result"`
+	}
+	json.NewDecoder(resp.Body).Decode(&res)
+
+	var entries []NotificationEntry
+	// Limit to the 50 most recent notifications
+	start := 0
+	if len(res.Result) > 50 {
+		start = len(res.Result) - 50
+	}
+
+	for _, k := range res.Result[start:] {
+		var entry NotificationEntry
+		valURL := notificationsBaseURL + "/" + k.Name
+		vReq, _ := http.NewRequest("GET", valURL, nil)
+		vReq.Header.Set("Authorization", "Bearer "+cfAPIToken)
+		vResp, err := http.DefaultClient.Do(vReq)
+		if err == nil && vResp.StatusCode == 200 {
+			b, _ := io.ReadAll(vResp.Body)
+			json.Unmarshal(b, &entry)
+			entries = append(entries, entry)
+		}
+		if vResp != nil {
+			vResp.Body.Close()
+		}
+	}
+
+	// Sort by timestamp descending (newest first)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Timestamp > entries[j].Timestamp
+	})
+
+	return entries, nil
+}
+
+func MarkNotificationsRead(email string) {
+	if cfNotificationsNamespaceID == "" {
+		return
+	}
+
+	listURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/keys?prefix=notification:%s:", cfAccountID, cfNotificationsNamespaceID, email)
+	req, _ := http.NewRequest("GET", listURL, nil)
+	req.Header.Set("Authorization", "Bearer "+cfAPIToken)
+	resp, _ := http.DefaultClient.Do(req)
+	if resp == nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	var res struct {
+		Result []struct {
+			Name string `json:"name"`
+		} `json:"result"`
+	}
+	json.NewDecoder(resp.Body).Decode(&res)
+
+	for _, k := range res.Result {
+		var entry NotificationEntry
+		valURL := notificationsBaseURL + "/" + k.Name
+		vReq, _ := http.NewRequest("GET", valURL, nil)
+		vReq.Header.Set("Authorization", "Bearer "+cfAPIToken)
+		vResp, err := http.DefaultClient.Do(vReq)
+		if err == nil && vResp.StatusCode == 200 {
+			b, _ := io.ReadAll(vResp.Body)
+			json.Unmarshal(b, &entry)
+			
+			if !entry.Read {
+				entry.Read = true
+				updatedData, _ := json.Marshal(entry)
+				// Overwrite the existing key with the updated read status
+				putReq, _ := http.NewRequest("PUT", valURL, bytes.NewBuffer(updatedData))
+				putReq.Header.Set("Authorization", "Bearer "+cfAPIToken)
+				putReq.Header.Set("Content-Type", "application/json")
+				putResp, _ := http.DefaultClient.Do(putReq)
+				if putResp != nil {
+					putResp.Body.Close()
+				}
+			}
+		}
+		if vResp != nil {
+			vResp.Body.Close()
+		}
+	}
+}
+
+func SaveFCMToken(email, token string) {
+	KVPut("fcm:"+email, token, 0)
 }
