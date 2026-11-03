@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"sort"
@@ -28,11 +29,19 @@ var kvBaseURL = fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/st
 var historyBaseURL = fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/values", cfAccountID, cfHistoryNamespaceID)
 var notificationsBaseURL = fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/values", cfAccountID, cfNotificationsNamespaceID)
 
+// FIX: Use a dedicated HTTP client with a timeout to prevent hanging
+var httpClient = &http.Client{Timeout: 10 * time.Second}
+
+// FIX: Custom errors to differentiate 404 vs 500
+var ErrNotFound = fmt.Errorf("not found")
+var ErrServer = fmt.Errorf("server error")
+
 // --- ENCRYPTION ---
 func getEncryptionKey() []byte {
 	secret := os.Getenv("TOKEN_ENCRYPTION_KEY")
 	if secret == "" {
-		secret = "fallback-key-change-me-in-render"
+		// FIX: Fail fast if the key is missing. Never ship a default.
+		log.Fatal("FATAL: TOKEN_ENCRYPTION_KEY environment variable is not set")
 	}
 	hash := sha256.Sum256([]byte(secret))
 	return hash[:]
@@ -138,11 +147,20 @@ type NotificationEntry struct {
 func KVGet(key string, v interface{}) error {
 	req, _ := http.NewRequest("GET", kvBaseURL+"/"+key, nil)
 	req.Header.Set("Authorization", "Bearer "+cfAPIToken)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil || resp.StatusCode != 200 {
-		return fmt.Errorf("not found")
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("network error: %v", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return ErrNotFound
+	}
+	if resp.StatusCode != 200 {
+		// FIX: Distinguish between not found and server errors
+		return fmt.Errorf("%w: status %d", ErrServer, resp.StatusCode)
+	}
+
 	body, _ := io.ReadAll(resp.Body)
 	return json.Unmarshal(body, v)
 }
@@ -155,9 +173,14 @@ func KVPut(key string, v interface{}, ttl int) error {
 	if ttl > 0 {
 		req.URL.RawQuery = fmt.Sprintf("expiration_ttl=%d", ttl)
 	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil || resp.StatusCode != 200 {
-		return fmt.Errorf("kv put failed: %v", err)
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("network error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("kv put failed with status %d", resp.StatusCode)
 	}
 	return nil
 }
@@ -165,7 +188,7 @@ func KVPut(key string, v interface{}, ttl int) error {
 func KVDelete(key string) {
 	req, _ := http.NewRequest("DELETE", kvBaseURL+"/"+key, nil)
 	req.Header.Set("Authorization", "Bearer "+cfAPIToken)
-	http.DefaultClient.Do(req)
+	httpClient.Do(req)
 }
 
 // --- UTR TRACKING ---
@@ -200,56 +223,73 @@ func LogHistory(email, event, amount, status string) {
 	req.Header.Set("Authorization", "Bearer "+cfAPIToken)
 	req.Header.Set("Content-Type", "application/json")
 	req.URL.RawQuery = "expiration_ttl=7776000"
-	http.DefaultClient.Do(req)
+	httpClient.Do(req)
 }
 
 func GetUserHistory(email string) ([]HistoryEntry, error) {
 	if cfHistoryNamespaceID == "" {
 		return []HistoryEntry{}, nil
 	}
-	listURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/keys?prefix=history:%s:", cfAccountID, cfHistoryNamespaceID, email)
-	req, _ := http.NewRequest("GET", listURL, nil)
-	req.Header.Set("Authorization", "Bearer "+cfAPIToken)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
 
-	var res struct {
-		Result []struct {
-			Name string `json:"name"`
-		} `json:"result"`
-	}
-	json.NewDecoder(resp.Body).Decode(&res)
+	var allEntries []HistoryEntry
+	var cursor string
 
-	var entries []HistoryEntry
-	start := 0
-	if len(res.Result) > 30 {
-		start = len(res.Result) - 30
-	}
-
-	for _, k := range res.Result[start:] {
-		var entry HistoryEntry
-		valURL := historyBaseURL + "/" + k.Name
-		vReq, _ := http.NewRequest("GET", valURL, nil)
-		vReq.Header.Set("Authorization", "Bearer "+cfAPIToken)
-		vResp, err := http.DefaultClient.Do(vReq)
-		if err == nil && vResp.StatusCode == 200 {
-			b, _ := io.ReadAll(vResp.Body)
-			json.Unmarshal(b, &entry)
-			entries = append(entries, entry)
+	// FIX: Loop to handle pagination correctly (KV list returns max 1000 per page)
+	for {
+		listURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/keys?prefix=history:%s:", cfAccountID, cfHistoryNamespaceID, email)
+		if cursor != "" {
+			listURL += "&cursor=" + cursor
 		}
-		if vResp != nil {
-			vResp.Body.Close()
+
+		req, _ := http.NewRequest("GET", listURL, nil)
+		req.Header.Set("Authorization", "Bearer "+cfAPIToken)
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+
+		var res struct {
+			Result []struct {
+				Name string `json:"name"`
+			} `json:"result"`
+			Cursor string `json:"cursor"`
+		}
+		json.NewDecoder(resp.Body).Decode(&res)
+		resp.Body.Close()
+
+		for _, k := range res.Result {
+			var entry HistoryEntry
+			valURL := historyBaseURL + "/" + k.Name
+			vReq, _ := http.NewRequest("GET", valURL, nil)
+			vReq.Header.Set("Authorization", "Bearer "+cfAPIToken)
+			vResp, err := httpClient.Do(vReq)
+			if err == nil && vResp.StatusCode == 200 {
+				b, _ := io.ReadAll(vResp.Body)
+				json.Unmarshal(b, &entry)
+				allEntries = append(allEntries, entry)
+			}
+			if vResp != nil {
+				vResp.Body.Close()
+			}
+		}
+
+		cursor = res.Cursor
+		if cursor == "" {
+			break // No more pages
 		}
 	}
 
-	for i, j := 0, len(entries)-1; i < j; i, j = i+1, j-1 {
-		entries[i], entries[j] = entries[j], entries[i]
+	// Sort descending (newest first)
+	sort.Slice(allEntries, func(i, j int) bool {
+		return allEntries[i].Timestamp > allEntries[j].Timestamp
+	})
+
+	// Limit to 30 most recent
+	if len(allEntries) > 30 {
+		allEntries = allEntries[:30]
 	}
 
-	return entries, nil
+	return allEntries, nil
 }
 
 // --- NOTIFICATIONS KV FUNCTIONS ---
@@ -273,12 +313,11 @@ func LogNotification(email, title, body string) {
 	req.Header.Set("Content-Type", "application/json")
 	req.URL.RawQuery = "expiration_ttl=7776000" 
 	
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err == nil && resp != nil {
 		resp.Body.Close()
 	}
 
-	// Trigger real-time push notification to the device
 	go SendPushNotification(email, title, body)
 }
 
@@ -290,7 +329,7 @@ func GetNotifications(email string) ([]NotificationEntry, error) {
 	listURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/keys?prefix=notification:%s:", cfAccountID, cfNotificationsNamespaceID, email)
 	req, _ := http.NewRequest("GET", listURL, nil)
 	req.Header.Set("Authorization", "Bearer "+cfAPIToken)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +353,7 @@ func GetNotifications(email string) ([]NotificationEntry, error) {
 		valURL := notificationsBaseURL + "/" + k.Name
 		vReq, _ := http.NewRequest("GET", valURL, nil)
 		vReq.Header.Set("Authorization", "Bearer "+cfAPIToken)
-		vResp, err := http.DefaultClient.Do(vReq)
+		vResp, err := httpClient.Do(vReq)
 		if err == nil && vResp.StatusCode == 200 {
 			b, _ := io.ReadAll(vResp.Body)
 			json.Unmarshal(b, &entry)
@@ -340,7 +379,7 @@ func MarkNotificationsRead(email string) {
 	listURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/keys?prefix=notification:%s:", cfAccountID, cfNotificationsNamespaceID, email)
 	req, _ := http.NewRequest("GET", listURL, nil)
 	req.Header.Set("Authorization", "Bearer "+cfAPIToken)
-	resp, _ := http.DefaultClient.Do(req)
+	resp, _ := httpClient.Do(req)
 	if resp == nil {
 		return
 	}
@@ -358,7 +397,7 @@ func MarkNotificationsRead(email string) {
 		valURL := notificationsBaseURL + "/" + k.Name
 		vReq, _ := http.NewRequest("GET", valURL, nil)
 		vReq.Header.Set("Authorization", "Bearer "+cfAPIToken)
-		vResp, err := http.DefaultClient.Do(vReq)
+		vResp, err := httpClient.Do(vReq)
 		if err == nil && vResp.StatusCode == 200 {
 			b, _ := io.ReadAll(vResp.Body)
 			json.Unmarshal(b, &entry)
@@ -369,7 +408,7 @@ func MarkNotificationsRead(email string) {
 				putReq, _ := http.NewRequest("PUT", valURL, bytes.NewBuffer(updatedData))
 				putReq.Header.Set("Authorization", "Bearer "+cfAPIToken)
 				putReq.Header.Set("Content-Type", "application/json")
-				putResp, _ := http.DefaultClient.Do(putReq)
+				putResp, _ := httpClient.Do(putReq)
 				if putResp != nil {
 					putResp.Body.Close()
 				}
