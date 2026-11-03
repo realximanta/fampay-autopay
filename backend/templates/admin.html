@@ -4,11 +4,8 @@
 	<meta charset="UTF-8">
 	<title>Admin | Auto-Pay</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<!-- Tailwind CSS via CDN -->
 	<script src="https://cdn.tailwindcss.com"></script>
-	<!-- Google Fonts -->
-	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-	<!-- Lucide Icons -->
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 	<script src="https://unpkg.com/lucide@latest"></script>
 	<script>
 		tailwind.config = {
@@ -22,13 +19,18 @@
 			}
 		}
 	</script>
+	<style>
+		.hidden { display: none !important; }
+	</style>
 </head>
-<body class="bg-brand-bg text-brand-text font-sans antialiased min-h-screen">
+<body class="bg-brand-bg text-brand-text font-sans antialiased min-h-screen flex flex-col">
 	<!-- Navbar -->
-	<nav class="border-b border-brand-border bg-brand-surface px-6 py-4 flex justify-between items-center">
+	<nav class="border-b border-brand-border bg-brand-surface px-6 py-4 flex justify-between items-center sticky top-0 z-50">
 		<div class="flex items-center gap-2">
-			<i data-lucide="shield" class="w-6 h-6 text-brand-accent"></i>
-			<span class="font-bold text-lg tracking-tight">Admin Console</span>
+			<a href="/" class="flex items-center gap-2 hover:opacity-80 transition">
+				<i data-lucide="shield" class="w-6 h-6 text-brand-accent"></i>
+				<span class="font-bold text-lg tracking-tight">Admin Console</span>
+			</a>
 		</div>
 		<div class="flex items-center gap-4 text-sm">
 			<button onclick="loadUsers()" class="text-brand-muted hover:text-white transition flex items-center gap-1"><i data-lucide="refresh-cw" class="w-4 h-4"></i> Refresh</button>
@@ -36,7 +38,8 @@
 		</div>
 	</nav>
 
-	<main class="container mx-auto px-6 py-10">
+	<!-- Main Content -->
+	<main class="flex-grow container mx-auto px-6 py-10">
 		<!-- Login View -->
 		<div id="loginView" class="max-w-md mx-auto bg-brand-surface border border-brand-border rounded-xl p-8 mt-20 text-center">
 			<i data-lucide="lock" class="w-12 h-12 text-brand-muted mx-auto mb-4"></i>
@@ -131,13 +134,21 @@
 
 		async function updateExp(email, days) {
 			if(!confirm("Update " + email + " by " + days + " days?")) return;
-			await fetch('/api/admin/expiry', { method: 'POST', body: JSON.stringify({email: email, days: days}) });
+			const res = await fetch('/api/admin/expiry', { 
+				method: 'POST', 
+				body: JSON.stringify({email: email, days: days}) 
+			});
+			if (!res.ok) alert("Failed to update expiry.");
 			loadUsers();
 		}
 
 		async function revokeKey(email) {
 			if(!confirm("Revoke key for " + email + "? They will need a new key.")) return;
-			await fetch('/api/admin/revoke?email=' + encodeURIComponent(email), { method: 'POST' });
+			// FIX: Explicitly enforce POST for CSRF protection
+			const res = await fetch('/api/admin/revoke?email=' + encodeURIComponent(email), { 
+				method: 'POST' 
+			});
+			if (!res.ok) alert("Failed to revoke key.");
 			loadUsers();
 		}
 	</script>
