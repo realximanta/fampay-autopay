@@ -3,6 +3,7 @@ package com.ximanta.autopay
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import android.webkit.CookieManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -25,8 +26,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.google.firebase.messaging.FirebaseMessaging
 import okhttp3.*
-import org.json.JSONArray
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -57,6 +60,43 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// Function to send the FCM token to the Go backend
+fun registerFcmTokenWithBackend(context: Context, cookie: String) {
+    FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+        if (!task.isSuccessful) {
+            Log.w("FCM", "Fetching FCM registration token failed", task.exception)
+            return@addOnCompleteListener
+        }
+
+        val token = task.result
+        Log.d("FCM", "Token: $token")
+
+        val json = JSONObject()
+        json.put("token", token)
+
+        val body = json.toString().toRequestBody("application/json".toMediaType())
+        val request = Request.Builder()
+            .url("https://auto-payment.ximanta.xyz/api/notifications/register")
+            .header("Cookie", cookie)
+            .post(body)
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("FCM", "Failed to register token with backend", e)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    Log.d("FCM", "Token successfully registered with backend")
+                } else {
+                    Log.e("FCM", "Backend rejected token: ${response.code}")
+                }
+            }
+        })
+    }
+}
+
 @Composable
 fun AutoPayApp() {
     val context = LocalContext.current
@@ -65,6 +105,13 @@ fun AutoPayApp() {
     var sessionCookie by remember { mutableStateOf(prefs.getString("session_cookie", null)) }
     var showWebView by remember { mutableStateOf(false) }
     var currentScreen by remember { mutableStateOf("home") }
+
+    // If already logged in on app open, register the token
+    LaunchedEffect(sessionCookie) {
+        if (sessionCookie != null) {
+            registerFcmTokenWithBackend(context, sessionCookie!!)
+        }
+    }
 
     if (showWebView) {
         OAuthWebView(
