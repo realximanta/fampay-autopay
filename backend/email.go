@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -13,33 +14,44 @@ import (
 func sendEmail(toEmail, subject, htmlBody string) error {
 	apiKey := os.Getenv("RESEND_API_KEY")
 	if apiKey == "" {
-		return fmt.Errorf("RESEND_API_KEY not set")
+		return fmt.Errorf("RESEND_API_KEY is not set in Render environment variables")
 	}
 
+	// MUST match the verified domain in Resend: auto-payment.ximanta.xyz
 	payload := map[string]interface{}{
-		"from":    "Auto-Pay <noreply@ximanta.xyz>",
+		"from":    "Auto-Pay <noreply@auto-payment.ximanta.xyz>", 
 		"to":      []string{toEmail},
 		"subject": subject,
 		"html":    htmlBody,
 	}
 
-	body, _ := json.Marshal(payload)
-	req, _ := http.NewRequest("POST", "https://api.resend.com/emails", bytes.NewBuffer(body))
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal email payload: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", "https://api.resend.com/emails", bytes.NewBuffer(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+	
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("network error calling Resend: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("resend failed with status %d", resp.StatusCode)
+		// Read the error body from Resend to know exactly what went wrong
+		errBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("resend API error (status %d): %s", resp.StatusCode, string(errBody))
 	}
 	
-	log.Printf("📧 Email sent to %s: %s\n", toEmail, subject)
+	log.Printf("📧 Email successfully sent to %s: %s\n", toEmail, subject)
 	return nil
 }
 
@@ -59,7 +71,12 @@ func SendWelcomeEmail(toEmail string) {
 			</p>
 		</div>
 	</div>`
-	go sendEmail(toEmail, subject, html)
+	
+	go func() {
+		if err := sendEmail(toEmail, subject, html); err != nil {
+			log.Printf("❌ Failed to send Welcome email to %s: %v\n", toEmail, err)
+		}
+	}()
 }
 
 // 2. Thank You Email (On Recharge)
@@ -79,7 +96,12 @@ func SendThankYouEmail(toEmail string, amount float64, daysAdded int) {
 			<a href="https://auto-payment.ximanta.xyz/dashboard" style="display: inline-block; padding: 12px 24px; background-color: #ffffff; color: #000000; text-decoration: none; border-radius: 8px; font-weight: 600;">View Dashboard</a>
 		</div>
 	</div>`, amount, daysAdded)
-	go sendEmail(toEmail, subject, html)
+	
+	go func() {
+		if err := sendEmail(toEmail, subject, html); err != nil {
+			log.Printf("❌ Failed to send Thank You email to %s: %v\n", toEmail, err)
+		}
+	}()
 }
 
 // 3. Expiry Email (1 day left OR Expired)
@@ -104,5 +126,10 @@ func SendExpiryEmail(toEmail string, daysLeft int) {
 			<a href="https://auto-payment.ximanta.xyz/dashboard" style="display: inline-block; padding: 12px 24px; background-color: #ffffff; color: #000000; text-decoration: none; border-radius: 8px; font-weight: 600;">Recharge Now</a>
 		</div>
 	</div>`, color, msg)
-	go sendEmail(toEmail, subject, html)
+	
+	go func() {
+		if err := sendEmail(toEmail, subject, html); err != nil {
+			log.Printf("❌ Failed to send Expiry email to %s: %v\n", toEmail, err)
+		}
+	}()
 }
