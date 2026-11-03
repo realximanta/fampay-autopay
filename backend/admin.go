@@ -19,46 +19,68 @@ type AdminUser struct {
 	DaysLeft  int    `json:"days_left"`
 }
 
+// ListAllUsers fetches every user using cursor-based pagination
 func ListAllUsers() ([]AdminUser, error) {
-	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/keys?prefix=user:", cfAccountID, cfNamespaceID)
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("Authorization", "Bearer "+cfAPIToken)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+	var allUsers []AdminUser
+	var cursor string
 
-	var result struct {
-		Result []struct {
-			Name string `json:"name"`
-		} `json:"result"`
-	}
-	body, _ := io.ReadAll(resp.Body)
-	json.Unmarshal(body, &result)
+	for {
+		url := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/storage/kv/namespaces/%s/keys?prefix=user:", cfAccountID, cfNamespaceID)
+		if cursor != "" {
+			url += "&cursor=" + cursor
+		}
 
-	var users []AdminUser
-	for _, key := range result.Result {
-		email := strings.TrimPrefix(key.Name, "user:")
-		var data KeyData
-		if err := KVGet("user:"+email, &data); err == nil {
-			var apiKey string
-			KVGet("email_key:"+email, &apiKey)
-			
-			daysLeft := int((data.ExpiresAt - time.Now().Unix()) / 86400)
-			if daysLeft < 0 {
-				daysLeft = 0
+		req, _ := http.NewRequest("GET", url, nil)
+		req.Header.Set("Authorization", "Bearer "+cfAPIToken)
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+
+		var result struct {
+			Result []struct {
+				Name string `json:"name"`
+			} `json:"result"`
+			Cursor string `json:"cursor"`
+		}
+		
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		
+		if resp.StatusCode != 200 {
+			return nil, fmt.Errorf("KV list failed with status %d", resp.StatusCode)
+		}
+
+		json.Unmarshal(body, &result)
+
+		for _, key := range result.Result {
+			email := strings.TrimPrefix(key.Name, "user:")
+			var data KeyData
+			if err := KVGet("user:"+email, &data); err == nil {
+				var apiKey string
+				KVGet("email_key:"+email, &apiKey)
+				
+				daysLeft := int((data.ExpiresAt - time.Now().Unix()) / 86400)
+				if daysLeft < 0 {
+					daysLeft = 0
+				}
+				
+				allUsers = append(allUsers, AdminUser{
+					Email:     email,
+					APIKey:    apiKey,
+					ExpiresAt: data.ExpiresAt,
+					DaysLeft:  daysLeft,
+				})
 			}
-			
-			users = append(users, AdminUser{
-				Email:     email,
-				APIKey:    apiKey,
-				ExpiresAt: data.ExpiresAt,
-				DaysLeft:  daysLeft,
-			})
+		}
+
+		cursor = result.Cursor
+		if cursor == "" {
+			break // No more pages
 		}
 	}
-	return users, nil
+
+	return allUsers, nil
 }
 
 func LogAdminAction(ip string, action string, details string) {
@@ -206,13 +228,19 @@ func HandleAdminUpdateExpiry(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"success": true}`))
 }
 
-// NEW: Admin Revoke Key
+// HandleAdminRevoke requires a POST request and valid admin session.
 func HandleAdminRevoke(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
 	cookie, err := r.Cookie("admin_session")
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
+	
 	var val string
 	if err := KVGet("admin_session:"+cookie.Value, &val); err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -237,6 +265,12 @@ func HandleAdminRevoke(w http.ResponseWriter, r *http.Request) {
 	KVPut("key:"+newKeyStr, userKey, 0)
 	KVPut("email_key:"+email, newKeyStr, 0)
 
-	LogAdminAction(r.RemoteAddr, "admin_revoke", "Revoked key for "+email)
+	ip := r.Header.Get("X-Forwarded-For")
+	if ip == "" {
+		ip = r.RemoteAddr
+	}
+	LogAdminAction(ip, "admin_revoke", "Revoked key for "+email)
+	
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"success": true}`))
 }
