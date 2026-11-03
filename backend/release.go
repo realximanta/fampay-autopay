@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type GitHubRelease struct {
@@ -22,14 +23,21 @@ type ReleaseResponse struct {
 func HandleLatestRelease(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	// Fetch latest release from GitHub API
+	// Try to get from cache first (saves GitHub API limits)
+	var cachedData ReleaseResponse
+	if err := KVGet("cache:latest_release", &cachedData); err == nil {
+		json.NewEncoder(w).Encode(cachedData)
+		return
+	}
+
 	req, _ := http.NewRequest("GET", "https://api.github.com/repos/realximanta/fampay-autopay/releases/latest", nil)
 	req.Header.Set("User-Agent", "AutoPay-Backend")
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
+	
+	// Fallback if API fails or rate-limits
 	if err != nil || resp.StatusCode != 200 {
-		// If the repo has no releases yet, return a fallback
 		json.NewEncoder(w).Encode(ReleaseResponse{
 			Version:     "v1.0.0",
 			DownloadURL: "https://github.com/realximanta/fampay-autopay/releases",
@@ -46,7 +54,6 @@ func HandleLatestRelease(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var apkURL string
-	// Look for the .apk file in the release assets
 	for _, asset := range release.Assets {
 		if strings.HasSuffix(strings.ToLower(asset.Name), ".apk") {
 			apkURL = asset.BrowserDownloadURL
@@ -54,13 +61,17 @@ func HandleLatestRelease(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// If no APK found, fallback to the releases page
 	if apkURL == "" {
 		apkURL = "https://github.com/realximanta/fampay-autopay/releases"
 	}
 
-	json.NewEncoder(w).Encode(ReleaseResponse{
+	result := ReleaseResponse{
 		Version:     release.TagName,
 		DownloadURL: apkURL,
-	})
+	}
+
+	// Cache the result in KV for 10 minutes (600 seconds)
+	KVPut("cache:latest_release", result, 600)
+
+	json.NewEncoder(w).Encode(result)
 }
