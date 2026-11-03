@@ -12,9 +12,7 @@
 			theme: {
 				extend: {
 					fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
-					colors: {
-						brand: { bg: '#000000', surface: '#0a0a0a', border: '#222222', text: '#ededed', muted: '#888888', accent: '#ffffff' }
-					}
+					colors: { brand: { bg: '#000000', surface: '#0a0a0a', border: '#222222', text: '#ededed', muted: '#888888', accent: '#ffffff' } }
 				}
 			}
 		}
@@ -34,16 +32,36 @@
 				<span class="font-bold text-lg tracking-tight">Auto-Pay</span>
 			</a>
 		</div>
-		<div class="flex items-center gap-6 text-sm text-brand-muted">
-			<a href="/docs" class="hover:text-white transition">Docs</a>
-			<a href="/dashboard" class="text-white font-medium">Dashboard</a>
-			<a href="/api/logout" class="hover:text-red-400 transition">Logout</a>
+		<div class="flex items-center gap-4">
+			<button onclick="toggleMenu()" class="text-brand-muted hover:text-white transition">
+				<i data-lucide="menu" class="w-6 h-6"></i>
+			</button>
 		</div>
 	</nav>
 
+	<!-- Side Menu -->
+	<div id="menuOverlay" class="fixed inset-0 bg-black/50 z-40 hidden" onclick="toggleMenu()"></div>
+	<div id="sideMenu" class="fixed top-0 right-0 h-full w-64 bg-brand-surface border-l border-brand-border z-50 transform translate-x-full transition-transform duration-300">
+		<div class="p-6">
+			<div class="flex justify-between items-center mb-8">
+				<span class="font-bold text-lg text-white">Menu</span>
+				<button onclick="toggleMenu()" class="text-brand-muted hover:text-white">
+					<i data-lucide="x" class="w-6 h-6"></i>
+				</button>
+			</div>
+			<nav class="space-y-4 text-sm">
+				<a href="/dashboard" class="block text-brand-muted hover:text-white transition">Dashboard</a>
+				<a href="/docs" class="block text-brand-muted hover:text-white transition">Documentation</a>
+				<a href="/privacy" class="block text-brand-muted hover:text-white transition">Privacy Policy</a>
+				<a href="/terms" class="block text-brand-muted hover:text-white transition">Terms of Service</a>
+				<hr class="border-brand-border my-4">
+				<a href="/api/logout" class="block text-red-400 hover:text-red-300 transition">Logout</a>
+			</nav>
+		</div>
+	</div>
+
 	<!-- Main Content -->
 	<main class="flex-grow container mx-auto px-6 py-10 max-w-6xl">
-		<!-- Header -->
 		<div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
 			<div>
 				<h1 class="text-3xl font-bold tracking-tight mb-1">Dashboard</h1>
@@ -59,9 +77,7 @@
 		</div>
 
 		<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-			<!-- Left Column (Main Data) -->
 			<div class="lg:col-span-2 space-y-6">
-				<!-- API Key Card -->
 				<div class="bg-brand-surface border border-brand-border rounded-xl p-6">
 					<div class="flex justify-between items-start mb-4">
 						<div>
@@ -81,7 +97,6 @@
 					</div>
 				</div>
 
-				<!-- Recent Activity -->
 				<div class="bg-brand-surface border border-brand-border rounded-xl overflow-hidden">
 					<div class="p-6 border-b border-brand-border flex justify-between items-center">
 						<h2 class="text-sm font-semibold text-brand-muted uppercase tracking-wider">Recent Activity</h2>
@@ -107,9 +122,7 @@
 				</div>
 			</div>
 
-			<!-- Right Column (Sidebar Widgets) -->
 			<div class="space-y-6">
-				<!-- Subscription Card -->
 				<div class="bg-brand-surface border border-brand-border rounded-xl p-6 relative overflow-hidden">
 					<div class="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
 					<h2 class="text-sm font-semibold text-brand-muted uppercase tracking-wider mb-4">Subscription</h2>
@@ -119,9 +132,7 @@
 					</div>
 					<p class="text-xs text-brand-muted mb-6">Expires: <span id="expiresAt" class="text-white">-</span></p>
 					
-					<!-- Plans Grid -->
 					<div class="space-y-3">
-						<!-- Go Plan -->
 						<button onclick="recharge('go')" class="w-full bg-brand-accent text-black hover:bg-gray-200 py-3 rounded-lg font-medium transition flex items-center justify-between px-4 shadow-lg group">
 							<div class="flex flex-col items-start">
 								<span class="font-bold">Go Plan</span>
@@ -130,7 +141,6 @@
 							<span class="font-bold text-lg">₹10</span>
 						</button>
 						
-						<!-- Plus Plan -->
 						<button onclick="recharge('plus')" class="w-full bg-transparent border border-brand-border text-white hover:bg-white/5 py-3 rounded-lg font-medium transition flex items-center justify-between px-4 group">
 							<div class="flex flex-col items-start">
 								<span class="font-bold">Plus Plan</span>
@@ -139,7 +149,6 @@
 							<span class="font-bold text-lg">₹25</span>
 						</button>
 
-						<!-- Pro Plan -->
 						<button onclick="recharge('pro')" class="w-full bg-transparent border border-brand-border text-white hover:bg-white/5 py-3 rounded-lg font-medium transition flex items-center justify-between px-4 group">
 							<div class="flex flex-col items-start">
 								<span class="font-bold">Pro Plan</span>
@@ -150,7 +159,6 @@
 					</div>
 				</div>
 
-				<!-- System Status -->
 				<div class="bg-brand-surface border border-brand-border rounded-xl p-6">
 					<h2 class="text-sm font-semibold text-brand-muted uppercase tracking-wider mb-4">System Status</h2>
 					<div class="space-y-4">
@@ -181,18 +189,15 @@
 	<div id="qrModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 modal-backdrop transition-opacity duration-300">
 		<div class="bg-brand-surface border border-brand-border rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl relative transform scale-95 transition-transform duration-300" id="qrModalContent">
 			<button onclick="cancelRecharge()" class="absolute top-4 right-4 text-brand-muted hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-full transition"><i data-lucide="x" class="w-5 h-5"></i></button>
-			
 			<div class="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
 				<i data-lucide="scan-line" class="w-6 h-6 text-blue-400"></i>
 			</div>
 			<h3 class="text-xl font-bold mb-2">Recharge Subscription</h3>
 			<p class="text-sm text-brand-muted mb-6">Scan with any UPI app to pay exactly:</p>
 			<div class="text-3xl font-mono font-bold text-yellow-400 mb-6 bg-black py-3 rounded-lg border border-brand-border inline-block px-8">₹<span id="payAmount">0.00</span></div>
-			
 			<div class="bg-white p-3 rounded-xl inline-block mb-6 shadow-lg">
 				<img id="qrImg" class="w-48 h-48" />
 			</div>
-			
 			<div class="flex items-center justify-center gap-2 text-sm text-blue-400 mb-2 animate-pulse" id="qrStatus">
 				<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Awaiting payment confirmation...
 			</div>
@@ -210,7 +215,6 @@
 				</div>
 				<button onclick="closeHistory()" class="text-brand-muted hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-full transition"><i data-lucide="x" class="w-5 h-5"></i></button>
 			</div>
-			
 			<div class="p-6 overflow-y-auto no-scrollbar flex-grow">
 				<table class="w-full text-left text-sm">
 					<thead class="bg-black/50 text-brand-muted sticky top-0">
@@ -231,23 +235,31 @@
 
 	<script>
 		lucide.createIcons();
+		function toggleMenu() {
+			const menu = document.getElementById('sideMenu');
+			const overlay = document.getElementById('menuOverlay');
+			if (menu.classList.contains('translate-x-full')) {
+				menu.classList.remove('translate-x-full');
+				overlay.classList.remove('hidden');
+			} else {
+				menu.classList.add('translate-x-full');
+				overlay.classList.add('hidden');
+			}
+		}
 
 		async function load() {
 			const res = await fetch('/api/me', { cache: 'no-store' });
 			if (res.status === 401) return window.location.href = '/api/login';
 			const data = await res.json();
-			
 			document.getElementById('email').innerText = data.email;
 			document.getElementById('apikey').innerText = data.api_key;
 			document.getElementById('days').innerText = data.days_left;
-			
 			if (data.expires_at > 0) {
 				const d = new Date(data.expires_at * 1000);
 				document.getElementById('expiresAt').innerText = d.toLocaleDateString();
 			} else {
 				document.getElementById('expiresAt').innerText = "Never";
 			}
-			
 			const badge = document.getElementById('statusBadge');
 			if (data.days_left > 0) {
 				badge.className = "px-3 py-1.5 rounded-lg text-sm font-semibold bg-green-900/30 text-green-400 border border-green-800/50 flex items-center gap-2";
@@ -256,7 +268,6 @@
 				badge.className = "px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-900/30 text-red-400 border border-red-800/50 flex items-center gap-2";
 				badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> EXPIRED';
 			}
-
 			loadHistory();
 		}
 
@@ -267,7 +278,6 @@
 				const history = await res.json();
 				renderTables(history);
 			} catch (err) {
-				// Fallback if history is empty on first load
 				renderTables([]);
 			}
 		}
@@ -278,19 +288,14 @@
 			if (data.length === 0) {
 				recentTbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-brand-muted text-sm">No recent activity.</td></tr>';
 			} else {
-				data.slice(0, 4).forEach(row => {
-					recentTbody.innerHTML += createRowHTML(row);
-				});
+				data.slice(0, 4).forEach(row => { recentTbody.innerHTML += createRowHTML(row); });
 			}
-
 			const fullTbody = document.getElementById('fullHistoryTable');
 			fullTbody.innerHTML = '';
 			if (data.length === 0) {
 				fullTbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-brand-muted text-sm">No activity found.</td></tr>';
 			} else {
-				data.forEach(row => {
-					fullTbody.innerHTML += createRowHTML(row);
-				});
+				data.forEach(row => { fullTbody.innerHTML += createRowHTML(row); });
 			}
 		}
 
@@ -300,10 +305,8 @@
 			if (row.status === 'partial' || row.status === 'overpaid') badgeClass = "text-yellow-400 bg-yellow-900/20";
 			if (row.status === 'not_found' || row.status === 'error') badgeClass = "text-red-400 bg-red-900/20";
 			if (row.status === 'generated') badgeClass = "text-blue-400 bg-blue-900/20";
-
 			const date = new Date(row.timestamp * 1000);
 			const timeStr = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-
 			return `
 				<tr class="hover:bg-white/5 transition">
 					<td class="py-3 px-6 font-mono text-blue-400">${row.event}</td>
@@ -335,17 +338,13 @@
 			if(pollInterval) clearInterval(pollInterval);
 			const res = await fetch('/api/qr', { method: 'POST', body: JSON.stringify({plan_id: plan}) });
 			const data = await res.json();
-			
 			document.getElementById('payAmount').innerText = data.fingerprint;
 			document.getElementById('qrImg').src = 'data:image/png;base64,' + data.qr_base64;
-			
 			const modal = document.getElementById('qrModal');
 			const content = document.getElementById('qrModalContent');
-			
 			modal.classList.remove('hidden');
 			modal.classList.add('flex');
 			setTimeout(() => { content.classList.remove('scale-95'); content.classList.add('scale-100'); }, 10);
-			
 			pollInterval = setInterval(async () => {
 				const v = await fetch('/api/recharge/verify', { method: 'POST', body: JSON.stringify({fingerprint: data.fingerprint}) });
 				const vData = await v.json();
