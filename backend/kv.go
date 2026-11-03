@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"os"
 	"sort"
-	"strings"
 	"time"
 )
 
@@ -254,15 +253,11 @@ func GetUserHistory(email string) ([]HistoryEntry, error) {
 }
 
 // --- NOTIFICATIONS KV FUNCTIONS ---
-// We use a prefix-based key structure (notification:<email>:<timestamp>) 
-// to avoid write contention (last-writer-wins) that occurs when storing 
-// an entire JSON array under a single key.
-
 func LogNotification(email, title, body string) {
 	if cfNotificationsNamespaceID == "" {
 		return
 	}
-	ts := time.Now().UnixNano() // Use nanoseconds for uniqueness
+	ts := time.Now().UnixNano()
 	key := fmt.Sprintf("notification:%s:%d", email, ts)
 	
 	entry := NotificationEntry{
@@ -276,8 +271,6 @@ func LogNotification(email, title, body string) {
 	req, _ := http.NewRequest("PUT", notificationsBaseURL+"/"+key, bytes.NewBuffer(jsonData))
 	req.Header.Set("Authorization", "Bearer "+cfAPIToken)
 	req.Header.Set("Content-Type", "application/json")
-	
-	// Keep notifications for 90 days
 	req.URL.RawQuery = "expiration_ttl=7776000" 
 	
 	resp, err := http.DefaultClient.Do(req)
@@ -308,7 +301,6 @@ func GetNotifications(email string) ([]NotificationEntry, error) {
 	json.NewDecoder(resp.Body).Decode(&res)
 
 	var entries []NotificationEntry
-	// Limit to the 50 most recent notifications
 	start := 0
 	if len(res.Result) > 50 {
 		start = len(res.Result) - 50
@@ -330,7 +322,6 @@ func GetNotifications(email string) ([]NotificationEntry, error) {
 		}
 	}
 
-	// Sort by timestamp descending (newest first)
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].Timestamp > entries[j].Timestamp
 	})
@@ -372,7 +363,6 @@ func MarkNotificationsRead(email string) {
 			if !entry.Read {
 				entry.Read = true
 				updatedData, _ := json.Marshal(entry)
-				// Overwrite the existing key with the updated read status
 				putReq, _ := http.NewRequest("PUT", valURL, bytes.NewBuffer(updatedData))
 				putReq.Header.Set("Authorization", "Bearer "+cfAPIToken)
 				putReq.Header.Set("Content-Type", "application/json")
