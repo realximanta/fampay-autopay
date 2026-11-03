@@ -8,7 +8,7 @@ import (
 
 // StartEmailWorker launches a background goroutine that checks for expiries
 func StartEmailWorker() {
-	log.Println("⏰ Background Email Worker started.")
+	log.Println("⏰ Background Email & Notification Worker started.")
 	
 	// Run immediately once on boot
 	go processExpiryEmails()
@@ -48,8 +48,9 @@ func processExpiryEmails() {
 			if KVGet(key, &dummy) != nil {
 				// Key doesn't exist, so we haven't sent it recently
 				SendExpiryEmail(u.Email, 0)
+				LogNotification(u.Email, "Subscription Expired", "Your API key has expired. Please recharge to resume service.")
 				KVPut(key, "sent", 86400) // Mark as sent for 24 hours
-				log.Printf("📧 Sent EXPIRED email to %s\n", u.Email)
+				log.Printf("📧 Sent EXPIRED email & notification to %s\n", u.Email)
 			}
 		}
 
@@ -60,8 +61,9 @@ func processExpiryEmails() {
 			if KVGet(key, &dummy) != nil {
 				// Key doesn't exist
 				SendExpiryEmail(u.Email, 1)
+				LogNotification(u.Email, "Subscription Expiring Soon", "Your API key will expire in 1 day. Recharge now to avoid interruption.")
 				KVPut(key, "sent", 86400) // Mark as sent for 24 hours
-				log.Printf("📧 Sent EXPIRING email to %s\n", u.Email)
+				log.Printf("📧 Sent EXPIRING email & notification to %s\n", u.Email)
 			}
 		}
 	}
