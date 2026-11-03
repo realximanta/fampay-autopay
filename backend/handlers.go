@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/big"
 	"net/http"
 	"regexp"
@@ -16,16 +17,23 @@ import (
 	"github.com/skip2/go-qrcode"
 )
 
+// FIX: No longer panics on error, just logs it.
 func generateSecureRandomString(length int) string {
 	b := make([]byte, length)
 	if _, err := rand.Read(b); err != nil {
-		panic(err)
+		log.Printf("❌ CRITICAL: Failed to generate secure random string: %v\n", err)
+		return ""
 	}
 	return hex.EncodeToString(b)[:length]
 }
 
 func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	state := generateSecureRandomString(32)
+	if state == "" {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	
 	verifier, challenge := GeneratePKCE()
 	KVPut("pkce:"+state, verifier, 600)
 
@@ -53,7 +61,8 @@ func HandleLogout(w http.ResponseWriter, r *http.Request) {
 		Path:   "/",
 		MaxAge: -1,
 	})
-	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
+	// FIX: Redirect to landing page, not dashboard
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func HandleCallback(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +79,14 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid OAuth state", http.StatusForbidden)
 		return
 	}
+
+	// FIX: Clear the OAuth state cookie immediately
+	http.SetCookie(w, &http.Cookie{
+		Name:   "oauth_state",
+		Value:  "",
+		Path:   "/",
+		MaxAge: -1,
+	})
 
 	var verifier string
 	if err := KVGet("pkce:"+state, &verifier); err != nil {
@@ -105,16 +122,21 @@ func HandleCallback(w http.ResponseWriter, r *http.Request) {
 	if err := KVGet("user:"+email, &userKey); err != nil {
 		// NEW USER SIGN UP
 		newKey := generateSecureRandomString(20)
-		userKey = KeyData{Email: email, ExpiresAt: time.Now().Unix()}
+		// FIX: Save the encrypted token for new users!
+		userKey = KeyData{
+			Email:          email, 
+			ExpiresAt:      time.Now().Unix(),
+			EncryptedToken: encToken, 
+		}
 		KVPut("user:"+email, userKey, 0)
 		KVPut("key:"+newKey, userKey, 0)
 		KVPut("email_key:"+email, newKey, 0)
 		
-		// Send Welcome Email & In-App Notification
 		go SendWelcomeEmail(email)
 		go LogNotification(email, "Welcome to Auto-Pay! 🚀", "Your account is ready. Integrate our API to automate your FamApp payments.")
 		
 	} else {
+		// EXISTING USER LOGIN
 		userKey.EncryptedToken = encToken
 		KVPut("user:"+email, userKey, 0)
 	}
@@ -185,7 +207,7 @@ func HandleGetHistory(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(history)
 }
 
-// --- NEW: NOTIFICATION ENDPOINTS ---
+// --- NOTIFICATION ENDPOINTS ---
 
 func HandleGetNotifications(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("session")
@@ -250,10 +272,24 @@ func HandleRegisterDevice(w http.ResponseWriter, r *http.Request) {
 
 // ----------------------------------
 
+// FIX: Enforce POST and validate session
 func HandleRevoke(w http.ResponseWriter, r *http.Request) {
-	cookie, _ := r.Cookie("session")
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	cookie, err := r.Cookie("session")
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	var email string
-	KVGet("session:"+cookie.Value, &email)
+	if err := KVGet("session:"+cookie.Value, &email); err != nil || email == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
 
 	var oldKeyStr string
 	if err := KVGet("email_key:"+email, &oldKeyStr); err == nil {
@@ -268,6 +304,7 @@ func HandleRevoke(w http.ResponseWriter, r *http.Request) {
 	KVPut("email_key:"+email, newKeyStr, 0)
 
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"success": true}`))
 }
 
 func HandleGenerateQR(w http.ResponseWriter, r *http.Request) {
@@ -287,6 +324,7 @@ func HandleGenerateQR(w http.ResponseWriter, r *http.Request) {
 		days = 41
 	}
 
+	// FIX: using crypto/rand for paise generation (already correct here)
 	n, _ := rand.Int(rand.Reader, big.NewInt(99))
 	paise := int(n.Int64()) + 1
 	fp := fmt.Sprintf("%.2f", float64(amount)+float64(paise)/100.0)
@@ -367,7 +405,6 @@ func HandleRechargeVerify(w http.ResponseWriter, r *http.Request) {
 
 	LogHistory(email, "Subscription Recharged", req.Fingerprint, "exact")
 	
-	// Send Thank You Email & In-App Notification
 	go SendThankYouEmail(pending.Email, float64(pending.Amount), pending.Days)
 	go LogNotification(pending.Email, "Subscription Recharged", fmt.Sprintf("Successfully added %d days to your API key.", pending.Days))
 
