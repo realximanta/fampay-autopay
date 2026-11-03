@@ -19,35 +19,52 @@
     </script>
 </head>
 <body class="bg-brand-bg text-brand-text font-sans antialiased min-h-screen flex flex-col">
-    <!-- Navbar -->
-    <nav class="border-b border-brand-border bg-brand-surface px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+    <nav class="border-b border-brand-border bg-brand-surface px-6 py-4 flex justify-between items-center sticky top-0 z-40">
         <div class="flex items-center gap-2">
             <a href="/" class="flex items-center gap-2 hover:opacity-80 transition">
                 <i data-lucide="zap" class="w-6 h-6 text-brand-accent"></i>
                 <span class="font-bold text-lg tracking-tight">Auto-Pay</span>
             </a>
         </div>
-        <div class="flex items-center gap-4 text-sm">
-            <a href="/docs" class="text-brand-muted hover:text-white transition">Documentation</a>
-            <a href="/terms" class="text-brand-muted hover:text-white transition">Terms of Service</a>
-            <a href="/api/login" class="bg-brand-accent text-black px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition">Sign In</a>
+        <div class="flex items-center gap-4">
+            <button onclick="toggleMenu()" class="text-brand-muted hover:text-white transition">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
         </div>
     </nav>
 
-    <!-- Main Content -->
+    <!-- Side Menu -->
+    <div id="menuOverlay" class="fixed inset-0 bg-black/50 z-40 hidden" onclick="toggleMenu()"></div>
+    <div id="sideMenu" class="fixed top-0 right-0 h-full w-64 bg-brand-surface border-l border-brand-border z-50 transform translate-x-full transition-transform duration-300">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-8">
+                <span class="font-bold text-lg text-white">Menu</span>
+                <button onclick="toggleMenu()" class="text-brand-muted hover:text-white">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <nav class="space-y-4 text-sm">
+                <a href="/dashboard" class="block text-brand-muted hover:text-white transition">Dashboard</a>
+                <a href="/docs" class="block text-brand-muted hover:text-white transition">Documentation</a>
+                <a href="/privacy" class="block text-brand-muted hover:text-white transition">Privacy Policy</a>
+                <a href="/terms" class="block text-brand-muted hover:text-white transition">Terms of Service</a>
+                <hr class="border-brand-border my-4">
+                <a href="/api/login" class="block text-green-400 hover:text-green-300 transition">Sign In</a>
+            </nav>
+        </div>
+    </div>
+
     <main class="flex-grow container mx-auto px-6 py-12 max-w-4xl">
         <div class="mb-10">
             <h1 class="text-3xl font-bold mb-2">Privacy Policy</h1>
             <p class="text-brand-muted">Last Updated: 2nd November 2026</p>
         </div>
-
         <div class="space-y-8 text-brand-muted leading-relaxed">
             <section>
                 <h2 class="text-xl font-semibold text-white mb-3">1. Introduction</h2>
                 <p>Welcome to Auto-Pay ("we", "our", or "us"). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website, API, and mobile application. This service is operated by <strong>Himanta Bhuyan</strong>.</p>
                 <p class="mt-2">By using Auto-Pay, you agree to the collection and use of information in accordance with this policy.</p>
             </section>
-
             <section>
                 <h2 class="text-xl font-semibold text-white mb-3">2. Information We Collect</h2>
                 <h3 class="text-lg font-medium text-gray-300 mt-4 mb-2">2.1 Google Account & Gmail Data</h3>
@@ -58,11 +75,9 @@
                     <li><code class="text-white bg-brand-surface px-1 rounded">userinfo.email</code>: To identify your account and link it to your unique API key.</li>
                 </ul>
                 <p class="mt-2"><strong>We do not read, store, sell, or share your personal emails.</strong> The system only scans for emails matching the exact FamApp payment template.</p>
-
                 <h3 class="text-lg font-medium text-gray-300 mt-4 mb-2">2.2 Authentication and API Data</h3>
                 <p>We generate and store your API key. Your API key is required to query our verification endpoints. We store this key and your account expiry date in a secure Cloudflare KV database.</p>
             </section>
-
             <section>
                 <h2 class="text-xl font-semibold text-white mb-3">3. How We Use Your Information</h2>
                 <ul class="list-disc list-inside mt-2 space-y-1 ml-2">
@@ -72,12 +87,10 @@
                     <li>To monitor and prevent abuse, fraud, or security breaches.</li>
                 </ul>
             </section>
-
             <section>
                 <h2 class="text-xl font-semibold text-white mb-3">4. Data Retention</h2>
                 <p>We retain your encrypted Google refresh token and API key for as long as your account is active. If you revoke your API key, the association between your key and your Gmail account is immediately destroyed. We do not retain email contents; they are parsed in memory and discarded.</p>
             </section>
-
             <section>
                 <h2 class="text-xl font-semibold text-white mb-3">5. Security of Your Data</h2>
                 <p>The security of your data is paramount. We implement industry-standard measures:</p>
@@ -87,7 +100,6 @@
                     <li>Payment data is verified using HMAC-SHA256 signatures to prevent tampering.</li>
                 </ul>
             </section>
-
             <section>
                 <h2 class="text-xl font-semibold text-white mb-3">6. Your Rights</h2>
                 <p>You have the right to:</p>
@@ -97,7 +109,6 @@
                     <li>Request the deletion of your account and associated data by contacting us.</li>
                 </ul>
             </section>
-
             <section>
                 <h2 class="text-xl font-semibold text-white mb-3">7. Third-Party Services</h2>
                 <p>We utilize the following third-party services to operate:</p>
@@ -108,7 +119,6 @@
                     <li><strong>Resend:</strong> For sending transactional emails.</li>
                 </ul>
             </section>
-
             <section>
                 <h2 class="text-xl font-semibold text-white mb-3">8. Contact Us</h2>
                 <p>If you have any questions about this Privacy Policy, please contact:</p>
@@ -119,12 +129,22 @@
             </section>
         </div>
     </main>
-
-    <!-- Footer -->
     <footer class="border-t border-brand-border py-8 text-center text-sm text-brand-muted mt-12">
         <p>&copy; 2026 Auto-Pay by Himanta Bhuyan. <a href="/privacy" class="hover:text-white">Privacy</a> &middot; <a href="/terms" class="hover:text-white">Terms</a></p>
     </footer>
-
-    <script>lucide.createIcons();</script>
+    <script>
+        lucide.createIcons();
+        function toggleMenu() {
+            const menu = document.getElementById('sideMenu');
+            const overlay = document.getElementById('menuOverlay');
+            if (menu.classList.contains('translate-x-full')) {
+                menu.classList.remove('translate-x-full');
+                overlay.classList.remove('hidden');
+            } else {
+                menu.classList.add('translate-x-full');
+                overlay.classList.add('hidden');
+            }
+        }
+    </script>
 </body>
 </html>
