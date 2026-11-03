@@ -1,6 +1,8 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    // Add the Google services Gradle plugin
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -76,6 +78,12 @@ dependencies {
 
     // WebView for OAuth
     implementation("androidx.webkit:webkit:1.10.0")
+
+    // --- FIREBASE ---
+    // Import the Firebase BoM
+    implementation(platform("com.google.firebase:firebase-bom:32.7.2"))
+    // Add the dependency for Firebase Cloud Messaging
+    implementation("com.google.firebase:firebase-messaging")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
