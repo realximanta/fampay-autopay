@@ -12,35 +12,49 @@
 			theme: {
 				extend: {
 					fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
-					colors: {
-						brand: { bg: '#000000', surface: '#0a0a0a', border: '#222222', text: '#ededed', muted: '#888888', accent: '#ffffff' }
-					}
+					colors: { brand: { bg: '#000000', surface: '#0a0a0a', border: '#222222', text: '#ededed', muted: '#888888', accent: '#ffffff' } }
 				}
 			}
 		}
 	</script>
-	<style>
-		.hidden { display: none !important; }
-	</style>
+	<style>.hidden { display: none !important; }</style>
 </head>
 <body class="bg-brand-bg text-brand-text font-sans antialiased min-h-screen flex flex-col">
-	<!-- Navbar -->
-	<nav class="border-b border-brand-border bg-brand-surface px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+	<nav class="border-b border-brand-border bg-brand-surface px-6 py-4 flex justify-between items-center sticky top-0 z-40">
 		<div class="flex items-center gap-2">
 			<a href="/" class="flex items-center gap-2 hover:opacity-80 transition">
 				<i data-lucide="shield" class="w-6 h-6 text-brand-accent"></i>
 				<span class="font-bold text-lg tracking-tight">Admin Console</span>
 			</a>
 		</div>
-		<div class="flex items-center gap-4 text-sm">
-			<button onclick="loadUsers()" class="text-brand-muted hover:text-white transition flex items-center gap-1"><i data-lucide="refresh-cw" class="w-4 h-4"></i> Refresh</button>
-			<a href="/api/admin/logout" class="text-red-400 hover:text-red-300 transition">Logout</a>
+		<div class="flex items-center gap-4">
+			<button onclick="toggleMenu()" class="text-brand-muted hover:text-white transition">
+				<i data-lucide="menu" class="w-6 h-6"></i>
+			</button>
 		</div>
 	</nav>
 
-	<!-- Main Content -->
+	<!-- Side Menu -->
+	<div id="menuOverlay" class="fixed inset-0 bg-black/50 z-40 hidden" onclick="toggleMenu()"></div>
+	<div id="sideMenu" class="fixed top-0 right-0 h-full w-64 bg-brand-surface border-l border-brand-border z-50 transform translate-x-full transition-transform duration-300">
+		<div class="p-6">
+			<div class="flex justify-between items-center mb-8">
+				<span class="font-bold text-lg text-white">Menu</span>
+				<button onclick="toggleMenu()" class="text-brand-muted hover:text-white">
+					<i data-lucide="x" class="w-6 h-6"></i>
+				</button>
+			</div>
+			<nav class="space-y-4 text-sm">
+				<a href="/admin" class="block text-brand-muted hover:text-white transition">Admin Panel</a>
+				<a href="/dashboard" class="block text-brand-muted hover:text-white transition">User Dashboard</a>
+				<a href="/docs" class="block text-brand-muted hover:text-white transition">Documentation</a>
+				<hr class="border-brand-border my-4">
+				<a href="/api/admin/logout" class="block text-red-400 hover:text-red-300 transition">Logout</a>
+			</nav>
+		</div>
+	</div>
+
 	<main class="flex-grow container mx-auto px-6 py-10">
-		<!-- Login View -->
 		<div id="loginView" class="max-w-md mx-auto bg-brand-surface border border-brand-border rounded-xl p-8 mt-20 text-center">
 			<i data-lucide="lock" class="w-12 h-12 text-brand-muted mx-auto mb-4"></i>
 			<h1 class="text-2xl font-bold mb-6">Admin Login</h1>
@@ -49,13 +63,11 @@
 			<p id="loginError" class="text-red-500 text-sm mt-4 hidden">Invalid password</p>
 		</div>
 
-		<!-- Panel View -->
 		<div id="panelView" class="hidden">
 			<div class="mb-6">
 				<h1 class="text-2xl font-bold">User Management</h1>
 				<p class="text-brand-muted text-sm mt-1">Manage keys, expiry, and user access.</p>
 			</div>
-			
 			<div class="bg-brand-surface border border-brand-border rounded-xl overflow-hidden">
 				<div class="overflow-x-auto">
 					<table class="w-full text-left border-collapse">
@@ -67,9 +79,7 @@
 								<th class="py-3 px-4 text-xs font-semibold text-brand-muted uppercase tracking-wider text-right">Actions</th>
 							</tr>
 						</thead>
-						<tbody id="userTable" class="divide-y divide-brand-border">
-							<!-- Rows injected by JS -->
-						</tbody>
+						<tbody id="userTable" class="divide-y divide-brand-border"></tbody>
 					</table>
 				</div>
 			</div>
@@ -78,6 +88,17 @@
 
 	<script>
 		lucide.createIcons();
+		function toggleMenu() {
+			const menu = document.getElementById('sideMenu');
+			const overlay = document.getElementById('menuOverlay');
+			if (menu.classList.contains('translate-x-full')) {
+				menu.classList.remove('translate-x-full');
+				overlay.classList.remove('hidden');
+			} else {
+				menu.classList.add('translate-x-full');
+				overlay.classList.add('hidden');
+			}
+		}
 
 		async function login() {
 			const pass = document.getElementById('adminPass').value;
@@ -95,10 +116,8 @@
 			const res = await fetch('/api/admin/users', { cache: 'no-store' });
 			if (!res.ok) return window.location.reload();
 			const users = await res.json();
-			
 			const tbody = document.getElementById('userTable');
 			tbody.innerHTML = '';
-			
 			users.forEach(u => {
 				const tr = document.createElement('tr');
 				tr.className = "hover:bg-white/5 transition";
@@ -124,7 +143,7 @@
 				`;
 				tbody.appendChild(tr);
 			});
-			lucide.createIcons(); // Re-init icons for dynamic content
+			lucide.createIcons();
 		}
 
 		function copyKey(key) {
@@ -134,20 +153,14 @@
 
 		async function updateExp(email, days) {
 			if(!confirm("Update " + email + " by " + days + " days?")) return;
-			const res = await fetch('/api/admin/expiry', { 
-				method: 'POST', 
-				body: JSON.stringify({email: email, days: days}) 
-			});
+			const res = await fetch('/api/admin/expiry', { method: 'POST', body: JSON.stringify({email: email, days: days}) });
 			if (!res.ok) alert("Failed to update expiry.");
 			loadUsers();
 		}
 
 		async function revokeKey(email) {
 			if(!confirm("Revoke key for " + email + "? They will need a new key.")) return;
-			// FIX: Explicitly enforce POST for CSRF protection
-			const res = await fetch('/api/admin/revoke?email=' + encodeURIComponent(email), { 
-				method: 'POST' 
-			});
+			const res = await fetch('/api/admin/revoke?email=' + encodeURIComponent(email), { method: 'POST' });
 			if (!res.ok) alert("Failed to revoke key.");
 			loadUsers();
 		}
