@@ -6,3 +6,20 @@ compatibility_date = "2024-03-20"
 [[kv_namespaces]]
 binding = "PAYMENT_KV"
 id = "047f1ec197724860bcdd8bbd4c487512" # Replace this with the ID from Cloudflare KV
+
+# ...
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 1
+persist = true
+
+[observability.issue_detection]
+enabled = true
+# ...
+
