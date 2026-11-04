@@ -1,5 +1,14 @@
 export default {
+  // This stops the 500 error when you visit the URL in a browser
+  async fetch(request, env, ctx) {
+    return new Response("Auto-Pay Email Worker is running perfectly!", { 
+      status: 200, 
+      headers: { "content-type": "text/plain" } 
+    });
+  },
+
   async email(message, env, ctx) {
+    console.log(`📩 Received email from: ${message.from}`);
     const rawEmail = await new Response(message.raw).text();
 
     // 1. Automatically verify Google Forwarding
@@ -13,7 +22,6 @@ export default {
     }
 
     // 2. Strict Sender Validation (FamPay Domain)
-    // Extract the From header from the raw email
     const fromMatch = rawEmail.match(/^From:\s*(.*)$/m);
     if (!fromMatch) {
         console.log("❌ Rejected: No From header found.");
@@ -27,7 +35,7 @@ export default {
 
     if (!isFamPay) {
         console.log(`❌ Rejected: Sender is not FamPay. From: ${fromHeader}`);
-        return; // Drop the email silently
+        return;
     }
 
     // 3. Parse Amount and UTR
@@ -39,10 +47,9 @@ export default {
         const utr = utrMatch[1];
         const ts = Date.now();
         
-        // Generate HMAC signature using Web Crypto API
         const secret = env.KV_HMAC_SECRET; 
         if (!secret) {
-            console.log("❌ Rejected: KV_HMAC_SECRET not set in Cloudflare env.");
+            console.log("❌ Rejected: KV_HMAC_SECRET not set.");
             return;
         }
 
@@ -55,7 +62,6 @@ export default {
         const signatureBuffer = await crypto.subtle.sign("HMAC", key, encoder.encode(payloadStr));
         const signature = Array.from(new Uint8Array(signatureBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 
-        // Save to KV with 24-hour TTL (86400 seconds)
         await env.PAYMENT_KV.put(`payment:${amount}`, JSON.stringify({
             amount: amount,
             timestamp: ts,
@@ -63,9 +69,9 @@ export default {
             signature: signature
         }), { expirationTtl: 86400 });
         
-        console.log(`✅ Verified FamPay ₹${amount} (UTR: ${utr}) saved to KV.`);
+        console.log(`✅ Verified FamPay ₹${amount} saved to KV.`);
     } else {
-        console.log("⚠️ FamPay email passed auth but amount or UTR format didn't match.");
+        console.log("⚠️ FamPay email passed auth but format didn't match.");
     }
   }
 }
