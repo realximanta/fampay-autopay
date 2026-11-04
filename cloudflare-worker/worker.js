@@ -1,5 +1,4 @@
 export default {
-  // This stops the 500 error when you visit the URL in a browser
   async fetch(request, env, ctx) {
     return new Response("Auto-Pay Email Worker is running perfectly!", { 
       status: 200, 
@@ -21,7 +20,7 @@ export default {
         return;
     }
 
-    // 2. Strict Sender Validation (FamPay Domain)
+    // 2. Strict Sender Validation
     const fromMatch = rawEmail.match(/^From:\s*(.*)$/m);
     if (!fromMatch) {
         console.log("❌ Rejected: No From header found.");
@@ -38,13 +37,24 @@ export default {
         return;
     }
 
-    // 3. Parse Amount and UTR
-    const amountMatch = rawEmail.match(/(?:You have successfully received|Received)\s*(?:₹|Rs\.?|INR)?\s*(\d{1,6}\.\d{2})/i);
-    const utrMatch = rawEmail.match(/UTR:\s*(\d+)/i);
+    // 3. Parse Amount and UTR / Transaction ID
+    // FIXED: Handles 1.0 or 1.00, and matches HTML tags/spaces between text
+    const amountMatch = rawEmail.match(/(?:You have successfully received|Received)[\s\S]*?(?:₹|Rs\.?|INR)?\s*([\d]+(?:\.\d{1,2})?)/i);
+    // FIXED: Looks for both UTR and Transaction ID
+    const utrMatch = rawEmail.match(/(?:UTR|Transaction ID)\s*:\s*([A-Za-z0-9]+)/i);
     
     if (amountMatch && amountMatch[1] && utrMatch && utrMatch[1]) {
-        const amount = amountMatch[1];
+        let amount = amountMatch[1];
         const utr = utrMatch[1];
+        
+        // Ensure amount is formatted with two decimal places (e.g., 1.0 -> 1.00)
+        if (!amount.includes('.')) {
+            amount = amount + '.00';
+        } else {
+            const parts = amount.split('.');
+            if (parts[1].length === 1) amount = amount + '0';
+        }
+
         const ts = Date.now();
         
         const secret = env.KV_HMAC_SECRET; 
@@ -69,9 +79,11 @@ export default {
             signature: signature
         }), { expirationTtl: 86400 });
         
-        console.log(`✅ Verified FamPay ₹${amount} saved to KV.`);
+        console.log(`✅ Verified FamPay ₹${amount} (UTR: ${utr}) saved to KV.`);
     } else {
         console.log("⚠️ FamPay email passed auth but format didn't match.");
+        console.log("Amount Match:", amountMatch ? amountMatch[1] : "None");
+        console.log("UTR Match:", utrMatch ? utrMatch[1] : "None");
     }
   }
 }
